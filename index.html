@@ -438,6 +438,31 @@
       background: rgba(102, 209, 158, 0.14);
     }
 
+    .hidden-toggle.cam-lock-flash {
+      animation: camLockFlash 0.62s ease-out;
+    }
+
+    @keyframes camLockFlash {
+      0% {
+        color: #fff;
+        border-color: #fff;
+        box-shadow: 0 0 0 0 rgba(106, 166, 255, 0.75), 0 0 18px rgba(106, 166, 255, 0.85);
+        background: rgba(106, 166, 255, 0.24);
+      }
+      45% {
+        color: #fff;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 7px rgba(106, 166, 255, 0), 0 0 24px rgba(106, 166, 255, 0.7);
+        background: rgba(106, 166, 255, 0.18);
+      }
+      100% {
+        color: var(--text);
+        border-color: #2a3560;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+        background: rgba(11, 16, 32, 0.88);
+      }
+    }
+
     .overlay-info {
       position: absolute;
       bottom: 20px;
@@ -572,7 +597,7 @@
 
   <div class="sidebar">
     <h1>Eriks Pallpacknings-Kalkylator 3000</h1>
-    <div class="app-version">Extreme Point Heuristic // Version 7.2.3</div>
+    <div class="app-version">Extreme Point Heuristic // Version 7.3.1</div>
 
     <div class="input-panel">
       <div class="field">
@@ -972,13 +997,26 @@
     let palletPointerDownClientX = 0;
     let palletPointerDownClientY = 0;
     let palletDragState = null;
+    let camLockFlashTimer = null;
+    let lastUpdateInputSignature = null;
+    let lastHandledPalletRowsSignature = null;
 
     els.toggleCamBtn.addEventListener('click', () => {
       freeCam = !freeCam;
-      controls.enabled = freeCam;
-      els.toggleCamBtn.innerText = freeCam ? 'Cam Unlocked' : 'Cam Locked';
-      els.toggleCamBtn.classList.toggle('active', freeCam);
-      if (!freeCam) autoFitCamera();
+
+      if (freeCam) {
+        controls.enabled = true;
+        resetPalletPointerDownState();
+        hideRotatePalletButton();
+      } else {
+        controls.enabled = false;
+        resetPalletPointerDownState();
+        hideRotatePalletButton();
+        autoFitCamera();
+        stopCameraMomentum();
+      }
+
+      updateCameraToggleUi();
     });
 
     [
@@ -2860,6 +2898,10 @@
         new THREE.Vector3(x, yDim + tick, zRight)
       ], dimMat);
 
+      if (options.showLabels === false) {
+        return;
+      }
+
       const heightLabel = createTextLabel(`Door H ${doorH} cm`, '#ffb86b', 190 * labelScale, 28 * labelScale, labelOptions);
       heightLabel.position.set(x - 4, doorH / 2, zDim + (12 * labelScale));
       group.add(heightLabel);
@@ -2927,6 +2969,10 @@
         new THREE.Vector3(xLeft - offset + tick, box.H, zFront + offset)
       ], mat);
 
+      if (options.showLabels === false) {
+        return;
+      }
+
       const lengthLabel = createTextLabel(`L ${box.L} cm`, '#ffb86b', 160 * labelScale, 26 * labelScale, labelOptions);
       lengthLabel.position.set(xLeft + Math.min(box.L * 0.36, 360), y + (18 * labelScale), zFront + offset + (12 * labelScale));
       group.add(lengthLabel);
@@ -2968,6 +3014,10 @@
         new THREE.Vector3(xLeft, y, zFront),
         new THREE.Vector3(xLeft, y, zBack)
       ], mat);
+
+      if (options.showLabels === false) {
+        return;
+      }
 
       const label = createTextLabel(`Top ${openL}x${openW} cm`, '#ffb86b', 210 * labelScale, 28 * labelScale, labelOptions);
       label.position.set(xLeft, y + (22 * labelScale), zBack);
@@ -3528,6 +3578,7 @@
         includeUnplaced = true,
         showLabels = true,
         showDimensionGuides = true,
+        showDimensionText = true,
         showExportBackPanels = false,
         exportPanelView = '3d'
       } = options;
@@ -3561,6 +3612,10 @@
           }
         : {};
 
+      dimensionLabelOptions.showLabels = showDimensionText;
+      doorDimensionLabelOptions.showLabels = showDimensionText;
+      containerDimensionLabelOptions.showLabels = showDimensionText;
+
       clearSceneGroup();
       interactivePalletMeshes = [];
       interactiveDropBins = [];
@@ -3585,7 +3640,8 @@
         }
 
         if (showLabels) {
-          const labelText = `${formatContainerType(bin.type)}${bin.visualOnly ? ' - height warning' : ''} (${box.L} x ${box.W} x ${box.H} cm)`;
+          const labelBase = `${formatContainerType(bin.type)}${bin.visualOnly ? ' - height warning' : ''}`;
+          const labelText = showExportBackPanels ? labelBase : `${labelBase} (${box.L} x ${box.W} x ${box.H} cm)`;
           const labelScaleX = showExportBackPanels ? (Math.min(660, Math.max(500, box.L * 0.44)) * pdfTextScale) : 350;
           const labelScaleY = showExportBackPanels ? (58 * pdfTextScale) : 45;
           const label = createTextLabel(labelText, showExportBackPanels ? '#ffffff' : '#a9b0d6', labelScaleX, labelScaleY, {
@@ -3680,6 +3736,58 @@
       pointerNdc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointerNdc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       return pointerNdc;
+    }
+
+    function flashCameraLockedButton() {
+      if (freeCam || !els.toggleCamBtn) return;
+
+      clearTimeout(camLockFlashTimer);
+      els.toggleCamBtn.classList.remove('cam-lock-flash');
+      void els.toggleCamBtn.offsetWidth;
+      els.toggleCamBtn.classList.add('cam-lock-flash');
+
+      camLockFlashTimer = window.setTimeout(() => {
+        els.toggleCamBtn.classList.remove('cam-lock-flash');
+      }, 650);
+    }
+
+    function stopCameraMomentum() {
+      const previousDamping = controls.enableDamping;
+      controls.enableDamping = false;
+      controls.update();
+      controls.enableDamping = previousDamping;
+    }
+
+    function isCameraInteractionMode() {
+      return Boolean(freeCam || controls.enabled);
+    }
+
+    function pointerIsOverContainerFootprint(event) {
+      if (!interactiveDropBins.length) return false;
+
+      camera.updateMatrixWorld(true);
+      mainGroup.updateMatrixWorld(true);
+      raycaster.setFromCamera(getPointerNdcFromEvent(event), camera);
+
+      const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const worldPoint = new THREE.Vector3();
+
+      if (!raycaster.ray.intersectPlane(floorPlane, worldPoint)) {
+        return false;
+      }
+
+      return interactiveDropBins.some(target => {
+        const { box, group } = target;
+        if (!box || !group) return false;
+
+        const local = group.worldToLocal(worldPoint.clone());
+        return (
+          local.x >= -box.L / 2 - EPS &&
+          local.x <= box.L / 2 + EPS &&
+          local.z >= -box.W / 2 - EPS &&
+          local.z <= box.W / 2 + EPS
+        );
+      });
     }
 
     function getPalletCenterOnScreen(hit) {
@@ -3796,6 +3904,12 @@
     }
 
     function handlePalletPointerMove(event) {
+      if (isCameraInteractionMode() && !palletDragState) {
+        resetPalletPointerDownState(event);
+        hideRotatePalletButton();
+        return;
+      }
+
       if (palletDragState && event.pointerId === palletDragState.pointerId) {
         updateManualPalletDrag(event);
         return;
@@ -3839,9 +3953,19 @@
     function handlePalletPointerDown(event) {
       if (event.button !== undefined && event.button !== 0) return;
 
+      if (isCameraInteractionMode()) {
+        resetPalletPointerDownState(event);
+        hideRotatePalletButton();
+        return;
+      }
+
       const hit = getPalletHitFromPointerEvent(event);
 
       if (!hit) {
+        if (!pointerIsOverContainerFootprint(event)) {
+          flashCameraLockedButton();
+        }
+
         resetPalletPointerDownState(event);
         hideRotatePalletButton();
         return;
@@ -3858,6 +3982,12 @@
     }
 
     function handlePalletPointerUp(event) {
+      if (freeCam && !palletDragState) {
+        resetPalletPointerDownState(event);
+        hideRotatePalletButton();
+        return;
+      }
+
       if (palletDragState && event.pointerId === palletDragState.pointerId) {
         finishManualPalletDrag(event, false);
         resetPalletPointerDownState(event);
@@ -3884,6 +4014,12 @@
     }
 
     function handlePalletPointerCancel(event) {
+      if (freeCam && !palletDragState) {
+        resetPalletPointerDownState(event);
+        hideRotatePalletButton();
+        return;
+      }
+
       cancelPalletPointerDown();
 
       if (palletDragState && event.pointerId === palletDragState.pointerId) {
@@ -3895,6 +4031,12 @@
     }
 
     function handlePalletPointerLeave(event) {
+      if (freeCam && !palletDragState) {
+        resetPalletPointerDownState(event);
+        hideRotatePalletButton();
+        return;
+      }
+
       if (palletDragState) return;
 
       if (palletPointerDownHit) {
@@ -4059,7 +4201,36 @@
       updateManualModeUi();
     }
 
+    function getPalletRowsInputState() {
+      return [...els.palletRows.querySelectorAll('.pallet-row')].map(rowEl => ({
+        rowId: rowEl.dataset.rowId || '',
+        count: rowEl.querySelector('[data-field="count"]')?.value ?? '',
+        L: rowEl.querySelector('[data-field="L"]')?.value ?? '',
+        W: rowEl.querySelector('[data-field="W"]')?.value ?? '',
+        H: rowEl.querySelector('[data-field="H"]')?.value ?? '',
+        weight: rowEl.querySelector('[data-field="weight"]')?.value ?? '',
+        lockRotation: Boolean(rowEl.querySelector('[data-field="lockRotation"]')?.checked)
+      }));
+    }
+
+    function getPalletRowsInputSignature() {
+      return JSON.stringify(getPalletRowsInputState());
+    }
+
+    function getPackingInputSignature() {
+      return JSON.stringify({
+        equipmentMode: getEquipmentMode(),
+        stackable: Boolean(els.stack.checked),
+        layers: els.layers.value ?? '',
+        rows: getPalletRowsInputState()
+      });
+    }
+
     function handlePalletRowsChanged() {
+      const rowsSignature = getPalletRowsInputSignature();
+      if (rowsSignature === lastHandledPalletRowsSignature) return;
+
+      lastHandledPalletRowsSignature = rowsSignature;
       resetManualModesAfterPalletInputChange();
       update();
     }
@@ -4084,7 +4255,7 @@
       manualSolution = null;
       manualModeInputDirty = false;
       updateManualModeUi();
-      update();
+      update(true);
     }
 
     function getPointerWorldPointOnPlane(event, plane) {
@@ -5478,6 +5649,10 @@
     function updateCameraToggleUi() {
       els.toggleCamBtn.innerText = freeCam ? 'Cam Unlocked' : 'Cam Locked';
       els.toggleCamBtn.classList.toggle('active', freeCam);
+      if (freeCam) {
+        clearTimeout(camLockFlashTimer);
+        els.toggleCamBtn.classList.remove('cam-lock-flash');
+      }
     }
 
     async function captureLockedCameraForPdf(solution = lastRenderedSolution) {
@@ -5492,6 +5667,7 @@
           includeUnplaced: true,
           showLabels: true,
           showDimensionGuides: true,
+          showDimensionText: false,
           showExportBackPanels: true,
           exportPanelView: '3d'
         });
@@ -5928,13 +6104,18 @@
       });
     }
 
-    function captureCurrentPdfSceneView(view, boundsOverride = null) {
+    function captureCurrentPdfSceneView(view, boundsOverride = null, options = {}) {
       return withPdfRendererSize(() => {
         const bounds = boundsOverride || getMainGroupBoundsForPdf();
         const viewCamera = createPdfCameraForView(view, bounds);
         resolvePdfLabelOverlaps(viewCamera);
         renderer.render(scene, viewCamera);
-        return makeRendererSnapshotDataUrl();
+
+        const snapshot = makeRendererSnapshotDataUrl();
+        if (options.dimensionBin) {
+          snapshot.dimensionLabels = getPdfDimensionLabelsForView(options.dimensionBin, view, viewCamera);
+        }
+        return snapshot;
       });
     }
 
@@ -5944,19 +6125,22 @@
         includeUnplaced: false,
         showLabels: Boolean(options.showLabels),
         showDimensionGuides: Boolean(options.showDimensionGuides),
+        showDimensionText: options.showDimensionText !== false,
         showExportBackPanels: true,
         exportPanelView: view
       });
 
       await nextFrame();
-      const staticBounds = getSingleContainerPdfBounds(singleSolution?.bins?.[0], view);
+      const bin = singleSolution?.bins?.[0];
+      const staticBounds = getSingleContainerPdfBounds(bin, view);
+      const captureOptions = options.dimensionTextOverlay === false ? {} : { dimensionBin: bin };
 
       if (view === '3d') {
-        return captureCurrentPdfSceneView(view, staticBounds);
+        return captureCurrentPdfSceneView(view, staticBounds, captureOptions);
       }
 
       staticBounds.union(getMainGroupBoundsForPdf({ ignoreTextLabels: true }));
-      return captureCurrentPdfSceneView(view, staticBounds);
+      return captureCurrentPdfSceneView(view, staticBounds, captureOptions);
     }
 
     async function captureContainerViewsForPdf(solution, binIndex) {
@@ -5974,16 +6158,20 @@
         bin: cloneBin(bin),
         threeD: await captureSingleContainerPdfView(singleSolution, '3d', {
           showLabels: true,
-          showDimensionGuides: true
+          showDimensionGuides: true,
+          showDimensionText: false
         }),
         top: await captureSingleContainerPdfView(singleSolution, 'top', {
-          showDimensionGuides: true
+          showDimensionGuides: true,
+          showDimensionText: false
         }),
         sideA: await captureSingleContainerPdfView(singleSolution, 'sideA', {
-          showDimensionGuides: true
+          showDimensionGuides: true,
+          showDimensionText: false
         }),
         sideB: await captureSingleContainerPdfView(singleSolution, 'sideB', {
-          showDimensionGuides: true
+          showDimensionGuides: true,
+          showDimensionText: false
         })
       };
     }
@@ -6076,11 +6264,162 @@
       });
     }
 
-    function drawPdfImagePanel(doc, title, image, x, y, w, h) {
+    function getPdfDimensionLabelSpecs(bin, view) {
+      const box = bin?.box || CONTAINERS[bin?.type];
+      if (!box) return [];
+
+      const xLeft = -box.L / 2;
+      const xRight = box.L / 2;
+      const zBack = -box.W / 2;
+      const zFront = box.W / 2;
+      const lineY = Math.max(8, box.H * 0.035);
+      const offset = 26;
+      const labelLift = view === 'top' ? 0 : Math.max(12, box.H * 0.025);
+      const specs = [];
+
+      const addLength = () => specs.push({
+        role: 'length',
+        text: `L ${box.L} cm`,
+        point: new THREE.Vector3(0, lineY + labelLift, zFront + offset + 10),
+        align: 'center',
+        offsetX: 0,
+        offsetY: view === 'top' ? -9 : -7
+      });
+
+      const addWidth = () => specs.push({
+        role: 'width',
+        text: `W ${box.W} cm`,
+        point: new THREE.Vector3(xRight + offset + 10, lineY + labelLift, (zBack + zFront) / 2),
+        align: 'left',
+        offsetX: 7,
+        offsetY: -2
+      });
+
+      const addHeight = () => specs.push({
+        role: 'height',
+        text: `H ${box.H} cm`,
+        point: new THREE.Vector3(xLeft - offset - 8, box.H / 2, zFront + offset + 10),
+        align: 'right',
+        offsetX: -7,
+        offsetY: 1
+      });
+
+      if (view === 'top') {
+        addLength();
+        addWidth();
+      } else if (view === 'sideA' || view === 'sideB') {
+        addLength();
+        addHeight();
+      } else if (view === '3d') {
+        addLength();
+        addWidth();
+        addHeight();
+      }
+
+      return specs;
+    }
+
+    function projectPdfDimensionLabel(spec, viewCamera) {
+      const ndc = spec.point.clone().project(viewCamera);
+      const width = Math.max(1, renderer.domElement.width || 1);
+      const height = Math.max(1, renderer.domElement.height || 1);
+
+      return {
+        text: spec.text,
+        role: spec.role,
+        align: spec.align || 'center',
+        x: ((ndc.x * 0.5) + 0.5) * width,
+        y: ((-ndc.y * 0.5) + 0.5) * height,
+        offsetX: spec.offsetX || 0,
+        offsetY: spec.offsetY || 0
+      };
+    }
+
+    function getPdfDimensionLabelsForView(bin, view, viewCamera) {
+      if (!viewCamera) return [];
+      return getPdfDimensionLabelSpecs(bin, view)
+        .map(spec => projectPdfDimensionLabel(spec, viewCamera))
+        .filter(label => Number.isFinite(label.x) && Number.isFinite(label.y));
+    }
+
+    function getPdfViewDimensionCaption(bin, view) {
+      const box = bin?.box || CONTAINERS[bin?.type];
+      if (!box) return '';
+
+      if (view === 'top') {
+        return `L ${box.L} cm | W ${box.W} cm`;
+      }
+
+      if (view === 'sideA' || view === 'sideB') {
+        return `L ${box.L} cm | H ${box.H} cm`;
+      }
+
+      if (view === '3d') {
+        return `L ${box.L} cm | W ${box.W} cm | H ${box.H} cm`;
+      }
+
+      return '';
+    }
+
+    function drawPdfDimensionOverlays(doc, image, imgBox) {
+      const labels = image?.dimensionLabels || [];
+      if (!labels.length) return;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.4);
+
+      labels.forEach(label => {
+        const text = normalizePdfText(label.text);
+        if (!text) return;
+
+        const scaleX = imgBox.w / Math.max(1, image.width || 1);
+        const scaleY = imgBox.h / Math.max(1, image.height || 1);
+        const textW = doc.getTextWidth(text);
+        const textH = 4.8;
+        const paddingX = 1.3;
+        const paddingY = 0.9;
+        let textX = imgBox.x + (label.x * scaleX) + ((label.offsetX || 0) * scaleX);
+        let textY = imgBox.y + (label.y * scaleY) + ((label.offsetY || 0) * scaleY);
+        const align = label.align || 'center';
+        const minX = imgBox.x + 1.5;
+        const maxX = imgBox.x + imgBox.w - 1.5;
+        const minY = imgBox.y + 4.8;
+        const maxY = imgBox.y + imgBox.h - 1.7;
+
+        if (align === 'center') {
+          textX = clamp(textX, minX + (textW / 2), maxX - (textW / 2));
+        } else if (align === 'right') {
+          textX = clamp(textX, minX + textW, maxX);
+        } else {
+          textX = clamp(textX, minX, maxX - textW);
+        }
+        textY = clamp(textY, minY, maxY);
+
+        const bgX = align === 'center'
+          ? textX - (textW / 2) - paddingX
+          : (align === 'right' ? textX - textW - paddingX : textX - paddingX);
+        const bgY = textY - textH + 0.8;
+
+        doc.setFillColor(17, 22, 42);
+        doc.roundedRect(bgX, bgY, textW + (paddingX * 2), textH + paddingY, 0.8, 0.8, 'F');
+        doc.setTextColor(255, 184, 107);
+        doc.text(text, textX, textY, { align });
+      });
+    }
+
+    function drawPdfImagePanel(doc, title, image, x, y, w, h, options = {}) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10.5);
       doc.setTextColor(17, 22, 42);
       doc.text(normalizePdfText(title), x, y + 4);
+
+      const caption = normalizePdfText(options.caption || '');
+      if (caption) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.2);
+        doc.setTextColor(80, 88, 120);
+        doc.text(caption, x + w, y + 4, { align: 'right', maxWidth: Math.max(35, w - 38) });
+      }
 
       const panelY = y + 7;
       const panelH = h - 7;
@@ -6089,6 +6428,7 @@
       const inset = 1.6;
       const imgBox = fitImageInBox(image.width, image.height, x + inset, panelY + inset, w - (inset * 2), panelH - (inset * 2));
       doc.addImage(image.dataUrl, 'PNG', imgBox.x, imgBox.y, imgBox.w, imgBox.h, undefined, 'FAST');
+      drawPdfDimensionOverlays(doc, image, imgBox);
     }
 
     function drawPdfTable(doc, columns, rows, x, y, colWidths, options = {}) {
@@ -6205,7 +6545,7 @@
       }
 
       if (!lastRenderedSolution) {
-        update();
+        update(true);
         await nextFrame();
       }
 
@@ -6319,7 +6659,13 @@
       updateMixedMode();
     }
 
-    function update() {
+    function update(force = false) {
+      const inputSignature = getPackingInputSignature();
+      if (!force && inputSignature === lastUpdateInputSignature) {
+        return;
+      }
+      lastUpdateInputSignature = inputSignature;
+
       clearTimeout(updateDelayTimer);
 
       if (syncManualModeWithEquipmentMode()) {
