@@ -338,6 +338,18 @@
 
     .stat-row span:last-child {
       text-align: right;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .stat-row.compact {
+      align-items: flex-start;
+    }
+
+    .stat-row.compact span:last-child {
+      max-width: 230px;
+      font-size: 12px;
+      line-height: 1.35;
     }
 
     .note {
@@ -500,9 +512,18 @@
 
     .loading-title {
       margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
       font-size: 13px;
       font-weight: 700;
       color: #fff;
+    }
+
+    .loading-percent {
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
     }
 
     .loading-bar {
@@ -514,16 +535,11 @@
     }
 
     .loading-bar-fill {
-      width: 42%;
+      width: 0%;
       height: 100%;
       border-radius: 999px;
       background: var(--accent);
-      animation: loadingSlide 1s ease-in-out infinite;
-    }
-
-    @keyframes loadingSlide {
-      0% { transform: translateX(-110%); }
-      100% { transform: translateX(260%); }
+      transition: width 0.16s linear;
     }
 
     .color-dot {
@@ -597,7 +613,7 @@
 
   <div class="sidebar">
     <h1>Eriks Pallpackningskalkylator</h1>
-    <div class="app-version">Extreme Point Heuristic // Version 7.3.1</div>
+    <div class="app-version">Extreme Point Heuristic // Version 7.4.0</div>
 
     <div class="input-panel">
       <div class="field">
@@ -653,6 +669,11 @@
       </div>
     </div>
 
+    <div class="field">
+      <label for="maxContainerWeight">Maxvikt/container (kg)</label>
+      <input id="maxContainerWeight" type="number" value="25000" min="1" step="100">
+    </div>
+
     <div class="stats">
       <div class="stat-row main">
         <span>Behov:</span>
@@ -673,6 +694,22 @@
       <div class="stat-row">
         <span>Volym (m³):</span>
         <span id="volTotal">-</span>
+      </div>
+      <div class="stat-row">
+        <span>Totalvikt:</span>
+        <span id="weightTotal">-</span>
+      </div>
+      <div class="stat-row compact">
+        <span>Containervikt:</span>
+        <span id="containerWeights">-</span>
+      </div>
+      <div class="stat-row">
+        <span>Beräkning:</span>
+        <span id="calculationMethod">-</span>
+      </div>
+      <div class="stat-row">
+        <span>Begränsning:</span>
+        <span id="limitReason">-</span>
       </div>
     </div>
 
@@ -704,8 +741,13 @@
     <button id="rotatePalletBtn" class="rotate-pallet-button" type="button" hidden>↻ Rotera pall</button>
     <div id="loadingOverlay" class="loading-overlay" hidden>
       <div class="loading-card">
-        <div class="loading-title">Beräknar packning...</div>
-        <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+        <div class="loading-title">
+          <span id="loadingTitle">Beräknar packning</span>
+          <span id="loadingPercent" class="loading-percent">0%</span>
+        </div>
+        <div class="loading-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="loadingBarFill" class="loading-bar-fill"></div>
+        </div>
       </div>
     </div>
     <div class="overlay-info">
@@ -915,6 +957,7 @@
       equipmentMode: document.getElementById('equipmentMode'),
       stack: document.getElementById('stack'),
       layers: document.getElementById('layers'),
+      maxContainerWeight: document.getElementById('maxContainerWeight'),
       reqText: document.getElementById('reqText'),
       cap40HCRow: document.getElementById('cap40HCRow'),
       cap40Row: document.getElementById('cap40Row'),
@@ -926,6 +969,10 @@
       cap40: document.getElementById('cap40'),
       cap20: document.getElementById('cap20'),
       volTotal: document.getElementById('volTotal'),
+      weightTotal: document.getElementById('weightTotal'),
+      containerWeights: document.getElementById('containerWeights'),
+      calculationMethod: document.getElementById('calculationMethod'),
+      limitReason: document.getElementById('limitReason'),
       msgBox: document.getElementById('msgBox'),
       manualModeBox: document.getElementById('manualModeBox'),
       manualModeText: document.getElementById('manualModeText'),
@@ -933,6 +980,9 @@
       toggleCamBtn: document.getElementById('toggleCam'),
       rotatePalletBtn: document.getElementById('rotatePalletBtn'),
       loadingOverlay: document.getElementById('loadingOverlay'),
+      loadingTitle: document.getElementById('loadingTitle'),
+      loadingPercent: document.getElementById('loadingPercent'),
+      loadingBarFill: document.getElementById('loadingBarFill'),
       dimensionLegendLabel: document.getElementById('dimensionLegendLabel'),
       container: document.getElementById('canvas-container')
     };
@@ -948,9 +998,23 @@
     renderer.setPixelRatio(window.devicePixelRatio);
     els.container.appendChild(renderer.domElement);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.enabled = false;
+    function createOrbitControls(enabled = false, target = null) {
+      const nextControls = new OrbitControls(camera, renderer.domElement);
+      nextControls.enableDamping = true;
+      nextControls.enabled = Boolean(enabled);
+      if (target) nextControls.target.copy(target);
+      nextControls.update();
+      return nextControls;
+    }
+
+    let controls = createOrbitControls(false);
+
+    function recreateOrbitControls(enabled) {
+      const target = controls?.target?.clone?.() || new THREE.Vector3();
+      controls?.dispose?.();
+      controls = createOrbitControls(enabled, target);
+      return controls;
+    }
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -962,13 +1026,17 @@
     let nextPalletRowId = 1;
     let updateDelayTimer = null;
     let updateJobId = 0;
+    const DEFAULT_MAX_CONTAINER_WEIGHT = 25000;
     const LONG_CALC_THRESHOLD = 20;
-    const LONG_CALC_DELAY_MS = 1000;
-    const MIN_LOADING_MS = 1000;
+    const LONG_CALC_DELAY_MS = 60;
+    const MIN_LOADING_MS = 250;
     const singleCapacityCache = new Map();
+    let activeCalculation = null;
     let loadingVisibleSince = 0;
     let loadingToken = 0;
     let hideLoadingTimer = null;
+    let lastLoadingProgress = -1;
+    let lockedCameraState = null;
     let lastRenderedSolution = null;
     let interactivePalletMeshes = [];
     let interactiveDropBins = [];
@@ -1002,26 +1070,13 @@
     let lastHandledPalletRowsSignature = null;
 
     els.toggleCamBtn.addEventListener('click', () => {
-      freeCam = !freeCam;
-
-      if (freeCam) {
-        controls.enabled = true;
-        resetPalletPointerDownState();
-        hideRotatePalletButton();
-      } else {
-        controls.enabled = false;
-        resetPalletPointerDownState();
-        hideRotatePalletButton();
-        autoFitCamera();
-        stopCameraMomentum();
-      }
-
-      updateCameraToggleUi();
+      setCameraUnlocked(!freeCam);
     });
 
     [
       els.layers,
-      els.equipmentMode
+      els.equipmentMode,
+      els.maxContainerWeight
     ].forEach(el => {
       el.addEventListener('input', update);
       el.addEventListener('change', update);
@@ -1030,6 +1085,13 @@
     els.stack.addEventListener('change', () => {
       els.layers.disabled = !els.stack.checked;
       update();
+    });
+
+    els.maxContainerWeight.addEventListener('blur', () => {
+      if (!Number.isFinite(parseFloat(els.maxContainerWeight.value)) || parseFloat(els.maxContainerWeight.value) <= 0) {
+        els.maxContainerWeight.value = DEFAULT_MAX_CONTAINER_WEIGHT;
+        update(true);
+      }
     });
 
     els.addPalletRow.addEventListener('click', () => {
@@ -1391,7 +1453,7 @@
     }
 
 
-    const CSV_COLUMNS = ['equipment_mode', 'stackable', 'layers', 'count', 'length_cm', 'width_cm', 'height_cm', 'weight_kg', 'lock_rotation'];
+    const CSV_COLUMNS = ['equipment_mode', 'stackable', 'layers', 'max_weight_kg', 'count', 'length_cm', 'width_cm', 'height_cm', 'weight_kg', 'lock_rotation'];
 
     function escapeCsvValue(value) {
       const text = String(value ?? '');
@@ -1415,6 +1477,7 @@
           equipmentMode,
           stackable,
           layers,
+          getMaxContainerWeight(),
           row.count,
           row.L,
           row.W,
@@ -1518,6 +1581,11 @@
         layers: 'layers',
         lager: 'layers',
         antal_lager: 'layers',
+        max_weight: 'max_weight_kg',
+        max_weight_kg: 'max_weight_kg',
+        maxvikt: 'max_weight_kg',
+        maxvikt_kg: 'max_weight_kg',
+        container_max_weight: 'max_weight_kg',
         count: 'count',
         antal: 'count',
         qty: 'count',
@@ -1600,6 +1668,7 @@
       let importedMode = null;
       let importedStackable = null;
       let importedLayers = null;
+      let importedMaxWeight = null;
 
       rows.slice(1).forEach(row => {
         const read = field => {
@@ -1618,6 +1687,11 @@
         const layerValue = parseInt(parseCsvNumber(read('layers')), 10);
         if (importedLayers === null && Number.isFinite(layerValue) && layerValue > 0) {
           importedLayers = layerValue;
+        }
+
+        const maxWeightValue = parseCsvNumber(read('max_weight_kg'));
+        if (importedMaxWeight === null && Number.isFinite(maxWeightValue) && maxWeightValue > 0) {
+          importedMaxWeight = maxWeightValue;
         }
 
         const count = Math.max(1, Math.floor(parseCsvNumber(read('count')) || 1));
@@ -1656,6 +1730,10 @@
 
       if (importedLayers !== null) {
         els.layers.value = importedLayers;
+      }
+
+      if (importedMaxWeight !== null) {
+        els.maxContainerWeight.value = importedMaxWeight;
       }
 
       clearPalletRows();
@@ -1702,6 +1780,83 @@
     }
 
     const EPS = 1e-6;
+
+    function getMaxContainerWeight() {
+      const value = parseFloat(els.maxContainerWeight?.value);
+      return Number.isFinite(value) && value > 0 ? value : DEFAULT_MAX_CONTAINER_WEIGHT;
+    }
+
+    function itemHasKnownWeight(item) {
+      if (!item || item.weight === '' || item.weight === null || item.weight === undefined) return false;
+      const value = Number(item.weight);
+      return Number.isFinite(value) && value >= 0;
+    }
+
+    function getItemWeight(item) {
+      return itemHasKnownWeight(item) ? Number(item.weight) : 0;
+    }
+
+    function getItemsWeightInfo(items = []) {
+      let knownWeight = 0;
+      let knownCount = 0;
+
+      for (const item of items) {
+        if (!itemHasKnownWeight(item)) continue;
+        knownWeight += getItemWeight(item);
+        knownCount++;
+      }
+
+      return {
+        knownWeight,
+        knownCount,
+        unknownCount: Math.max(0, items.length - knownCount),
+        totalCount: items.length,
+        complete: knownCount === items.length
+      };
+    }
+
+    function getBinWeightInfo(bin) {
+      return getItemsWeightInfo(bin?.items || []);
+    }
+
+    function syncBinWeightTotals(bin) {
+      if (!bin) return;
+      const info = getBinWeightInfo(bin);
+      bin.usedWeight = info.knownWeight;
+      bin.unknownWeightCount = info.unknownCount;
+    }
+
+    function canBinAcceptItemWeight(bin, item, maxWeight = getMaxContainerWeight(), options = {}) {
+      if (!itemHasKnownWeight(item)) return true;
+      const info = getBinWeightInfo(bin);
+      let ignoredWeight = 0;
+
+      for (const placement of bin?.placements || []) {
+        if (!placementIsIgnored(placement, options)) continue;
+        if (itemHasKnownWeight(placement.item)) ignoredWeight += getItemWeight(placement.item);
+      }
+
+      return info.knownWeight - ignoredWeight + getItemWeight(item) <= maxWeight + EPS;
+    }
+
+    function itemTooHeavyForContainer(item, maxWeight = getMaxContainerWeight()) {
+      return itemHasKnownWeight(item) && getItemWeight(item) > maxWeight + EPS;
+    }
+
+    function formatWeightValue(value, decimals = 1) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return '-';
+      return number.toLocaleString('sv-SE', {
+        minimumFractionDigits: Math.abs(number - Math.round(number)) > EPS ? decimals : 0,
+        maximumFractionDigits: decimals
+      });
+    }
+
+    function formatWeightInfo(info) {
+      if (!info || info.knownCount === 0) return '-';
+      const suffix = info.unknownCount > 0 ? ` · ${info.knownCount}/${info.totalCount}` : '';
+      return `${formatWeightValue(info.knownWeight)} kg${suffix}`;
+    }
 
     function getWantedLayers() {
       return els.stack.checked ? (parseInt(els.layers.value, 10) || 1) : 1;
@@ -1922,6 +2077,9 @@
     function buildSingleItems(pL, pW, pH, count, options = {}) {
       const items = [];
       const lockRotation = Boolean(options.lockRotation);
+      const weight = options.weight === '' || options.weight === null || options.weight === undefined
+        ? ''
+        : Number(options.weight);
 
       for (let i = 0; i < count; i++) {
         items.push({
@@ -1931,7 +2089,8 @@
           H: pH,
           area: pL * pW,
           volume: pL * pW * pH,
-          lockRotation
+          lockRotation,
+          weight: Number.isFinite(weight) ? weight : ''
         });
       }
 
@@ -1954,7 +2113,7 @@
       let seed = 2166136261;
 
       for (const item of items) {
-        const str = `${item.baseId}|${item.L}|${item.W}|${item.H}`;
+        const str = `${item.baseId}|${item.L}|${item.W}|${item.H}|${item.weight ?? ''}|${item.lockRotation ? 1 : 0}`;
 
         for (let i = 0; i < str.length; i++) {
           seed ^= str.charCodeAt(i);
@@ -2011,7 +2170,10 @@
         box: CONTAINERS[type],
         placements: [],
         items: [],
-        usedVolume: 0
+        usedVolume: 0,
+        usedWeight: 0,
+        unknownWeightCount: 0,
+        openedByWeight: false
       };
     }
 
@@ -2022,6 +2184,9 @@
         placements: bin.placements.map(p => ({ ...p })),
         items: [...bin.items],
         usedVolume: bin.usedVolume,
+        usedWeight: Number.isFinite(bin.usedWeight) ? bin.usedWeight : getBinWeightInfo(bin).knownWeight,
+        unknownWeightCount: Number.isFinite(bin.unknownWeightCount) ? bin.unknownWeightCount : getBinWeightInfo(bin).unknownCount,
+        openedByWeight: Boolean(bin.openedByWeight),
         visualOnly: Boolean(bin.visualOnly),
         overHeightWarning: Boolean(bin.overHeightWarning),
         overWidthWarning: Boolean(bin.overWidthWarning)
@@ -2033,7 +2198,9 @@
         type: solution.type,
         mode: solution.mode,
         bins: solution.bins.map(cloneBin),
-        unplaced: [...solution.unplaced]
+        unplaced: [...solution.unplaced],
+        algorithm: solution.algorithm || '',
+        weightLimited: Boolean(solution.weightLimited)
       };
     }
 
@@ -2204,6 +2371,7 @@
       }
 
       if (!placementFitsRoofOpeningClearance(box, item, x, y, L, W)) return null;
+      if (!options.ignoreWeight && !canBinAcceptItemWeight(bin, item, getMaxContainerWeight(), options)) return null;
 
       const probe = { x, y, z, L, W, H: item.H };
 
@@ -2275,16 +2443,26 @@
       return [overWidthPenalty, placement.z, placement.x, edgeDistance, edgeBias, -contact];
     }
 
-    function findBestPlacementInBin(bin, item, wantedLayers, heuristic) {
+    function findBestPlacementInBin(bin, item, wantedLayers, heuristic, placementOptions = {}) {
       let best = null;
       const points = generateCandidatePoints(bin);
 
-      const options = getItemOrientations(item);
+      const orientations = getItemOrientations(item);
 
       for (const pt of points) {
-        for (const opt of options) {
+        for (const opt of orientations) {
           const candidatePoint = getPlacementPointForOrientation(bin.box, item, pt.x, pt.y, opt.L, opt.W);
-          const supportInfo = canPlaceInBin(bin, item, candidatePoint.x, candidatePoint.y, pt.z, opt.L, opt.W, wantedLayers);
+          const supportInfo = canPlaceInBin(
+            bin,
+            item,
+            candidatePoint.x,
+            candidatePoint.y,
+            pt.z,
+            opt.L,
+            opt.W,
+            wantedLayers,
+            placementOptions
+          );
           if (!supportInfo) continue;
 
           const placement = {
@@ -2318,6 +2496,11 @@
       bin.placements.push(placement);
       bin.items.push(placement.item);
       bin.usedVolume += placement.item.volume;
+      if (itemHasKnownWeight(placement.item)) {
+        bin.usedWeight = (bin.usedWeight || 0) + getItemWeight(placement.item);
+      } else {
+        bin.unknownWeightCount = (bin.unknownWeightCount || 0) + 1;
+      }
       bin.overWidthWarning = bin.overWidthWarning || placement.isOverWidth;
       bin.overHeightWarning = bin.overHeightWarning || (
         placementExceedsNominalHeight(placement, bin.box) && !bin.box?.topLoad
@@ -2336,15 +2519,53 @@
       return a.binIndex < b.binIndex;
     }
 
-    function packIntoBins(initialBins, orderedItems, heuristic, type, wantedLayers, allowOpenNewBins = true) {
+    class CalculationCancelledError extends Error {
+      constructor() {
+        super('Calculation cancelled');
+        this.name = 'CalculationCancelledError';
+      }
+    }
+
+    function checkCalculation(calculation) {
+      if (!calculation) return;
+      if (calculation.cancelled || calculation.jobId !== updateJobId) {
+        throw new CalculationCancelledError();
+      }
+    }
+
+    function mapProgress(onProgress, start, end) {
+      if (typeof onProgress !== 'function') return null;
+      const span = end - start;
+      return value => onProgress(start + (Math.max(0, Math.min(1, Number(value) || 0)) * span));
+    }
+
+    async function calculationCheckpoint(calculation, onProgress = null, progress = null, forceYield = false) {
+      checkCalculation(calculation);
+      if (typeof onProgress === 'function' && progress !== null) onProgress(progress);
+
+      if (forceYield || calculation?.allowYield) {
+        await new Promise(resolve => window.setTimeout(resolve, 0));
+        checkCalculation(calculation);
+      }
+    }
+
+    async function packIntoBins(initialBins, orderedItems, heuristic, type, wantedLayers, allowOpenNewBins = true, options = {}) {
       const bins = initialBins.map(cloneBin);
       const unplaced = [];
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
+      const ignoreWeight = Boolean(options.ignoreWeight);
+      let weightLimited = initialBins.some(bin => bin.openedByWeight);
+      const totalItems = Math.max(1, orderedItems.length);
+      const yieldInterval = Math.max(1, Math.ceil(orderedItems.length / 8));
 
-      for (const item of orderedItems) {
+      for (let itemIndex = 0; itemIndex < orderedItems.length; itemIndex++) {
+        checkCalculation(calculation);
+        const item = orderedItems[itemIndex];
         let best = null;
 
         for (let i = 0; i < bins.length; i++) {
-          const found = findBestPlacementInBin(bins[i], item, wantedLayers, heuristic);
+          const found = findBestPlacementInBin(bins[i], item, wantedLayers, heuristic, { ignoreWeight });
 
           if (found) {
             const cand = {
@@ -2359,25 +2580,50 @@
 
         if (best) {
           placePlacementInBin(bins[best.binIndex], best.placement);
-          continue;
-        }
+        } else {
+          let blockedByWeight = false;
 
-        if (allowOpenNewBins) {
-          const newBin = createEmptyBin(type);
-          const found = findBestPlacementInBin(newBin, item, wantedLayers, heuristic);
+          if (!ignoreWeight && itemHasKnownWeight(item)) {
+            for (const bin of bins) {
+              if (canBinAcceptItemWeight(bin, item)) continue;
+              if (findBestPlacementInBin(bin, item, wantedLayers, heuristic, { ignoreWeight: true })) {
+                blockedByWeight = true;
+                break;
+              }
+            }
+          }
 
-          if (found) {
-            placePlacementInBin(newBin, found.placement);
-            bins.push(newBin);
+          weightLimited = weightLimited || blockedByWeight || itemTooHeavyForContainer(item);
+
+          if (allowOpenNewBins) {
+            const newBin = createEmptyBin(type);
+            const found = findBestPlacementInBin(newBin, item, wantedLayers, heuristic, { ignoreWeight });
+
+            if (found) {
+              newBin.openedByWeight = blockedByWeight;
+              placePlacementInBin(newBin, found.placement);
+              bins.push(newBin);
+            } else {
+              unplaced.push(item);
+            }
           } else {
             unplaced.push(item);
           }
-        } else {
-          unplaced.push(item);
+        }
+
+        const progress = (itemIndex + 1) / totalItems;
+        const shouldYield = calculation?.allowYield && (
+          (itemIndex + 1) % yieldInterval === 0 ||
+          itemIndex === orderedItems.length - 1
+        );
+        if (shouldYield) {
+          await calculationCheckpoint(calculation, onProgress, progress, true);
+        } else if (typeof onProgress === 'function') {
+          onProgress(progress);
         }
       }
 
-      return { bins, unplaced, type, mode: getEquipmentMode() };
+      return { bins, unplaced, type, mode: getEquipmentMode(), weightLimited };
     }
 
     function binWidthWarningCount(bin) {
@@ -2456,214 +2702,315 @@
       return solutionSpreadMetric(a) > solutionSpreadMetric(b);
     }
 
-    function bestSingleContainerPlan3D(type, items, wantedLayers, extraRandomOrders = 8) {
+    async function bestSingleContainerPlan3D(type, items, wantedLayers, extraRandomOrders = 8, options = {}) {
       if (!items.length) {
         return {
           type,
           placements: [],
           items: [],
           placedUnits: 0,
-          usedVolume: 0
+          usedVolume: 0,
+          usedWeight: 0,
+          unknownWeightCount: 0,
+          weightLimited: false
         };
       }
 
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
+      const ignoreWeight = Boolean(options.ignoreWeight);
       const box = CONTAINERS[type];
       const rng = makeSeededRng(getItemSeed(items) ^ box.L ^ box.W ^ box.H ^ 123);
-      const orders = buildCandidateOrders(items, rng, extraRandomOrders);
+      const orders = options.identicalItems
+        ? [[...items]]
+        : buildCandidateOrders(items, rng, extraRandomOrders);
       const heuristics = ['BLF', 'TIGHT', 'SUPPORT', 'WALL'];
-
+      const totalRuns = Math.max(1, orders.length * heuristics.length);
+      let runIndex = 0;
       let best = null;
 
       for (const order of orders) {
         for (const heuristic of heuristics) {
-          const result = packIntoBins([createEmptyBin(type)], order, heuristic, type, wantedLayers, false);
+          checkCalculation(calculation);
+          const start = runIndex / totalRuns;
+          const end = (runIndex + 1) / totalRuns;
+          const result = await packIntoBins(
+            [createEmptyBin(type)],
+            order,
+            heuristic,
+            type,
+            wantedLayers,
+            false,
+            {
+              calculation,
+              ignoreWeight,
+              onProgress: mapProgress(onProgress, start, end)
+            }
+          );
           const bin = result.bins[0] || createEmptyBin(type);
+          syncBinWeightTotals(bin);
 
           const candidate = {
             type,
             placements: bin.placements.map(p => ({ ...p })),
             items: [...bin.items],
             placedUnits: bin.items.length,
-            usedVolume: bin.usedVolume
+            usedVolume: bin.usedVolume,
+            usedWeight: bin.usedWeight,
+            unknownWeightCount: bin.unknownWeightCount,
+            weightLimited: Boolean(result.weightLimited)
           };
 
           const test = {
             type,
+            mode: getEquipmentMode(),
             bins: [cloneBin(bin)],
-            unplaced: []
+            unplaced: [],
+            weightLimited: Boolean(result.weightLimited)
           };
 
           const current = best
             ? {
                 type,
+                mode: getEquipmentMode(),
                 bins: [
                   {
                     type,
                     box: CONTAINERS[type],
                     placements: best.placements.map(p => ({ ...p })),
                     items: [...best.items],
-                    usedVolume: best.usedVolume
+                    usedVolume: best.usedVolume,
+                    usedWeight: best.usedWeight,
+                    unknownWeightCount: best.unknownWeightCount,
+                    openedByWeight: false
                   }
                 ],
-                unplaced: []
+                unplaced: [],
+                weightLimited: Boolean(best.weightLimited)
               }
             : null;
 
           if (!best || isSolutionBetter(test, current, items.length)) {
             best = candidate;
           }
+
+          runIndex++;
+          await calculationCheckpoint(calculation, onProgress, runIndex / totalRuns, Boolean(calculation?.allowYield));
         }
       }
 
       return best;
     }
 
-    function solveOpenBins3D(items, type = '40', wantedLayers = 1) {
+    async function solveOpenBins3D(items, type = '40', wantedLayers = 1, options = {}) {
       const totalUnits = items.length;
-      if (!items.length) return { type, mode: getEquipmentMode(), bins: [], unplaced: [] };
+      if (!items.length) return { type, mode: getEquipmentMode(), bins: [], unplaced: [], weightLimited: false };
 
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
       const box = CONTAINERS[type];
       const rng = makeSeededRng(getItemSeed(items) ^ box.L ^ box.W ^ box.H ^ 98765);
       const randomOrders = items.length <= 20 ? 14 : items.length <= 60 ? 10 : 6;
       const orders = buildCandidateOrders(items, rng, randomOrders);
       const heuristics = ['BLF', 'TIGHT', 'SUPPORT', 'WALL'];
-
+      const totalRuns = Math.max(1, orders.length * heuristics.length);
+      let runIndex = 0;
       let best = null;
 
       for (const order of orders) {
         for (const heuristic of heuristics) {
-          const candidate = packIntoBins([], order, heuristic, type, wantedLayers, true);
+          checkCalculation(calculation);
+          const candidate = await packIntoBins(
+            [],
+            order,
+            heuristic,
+            type,
+            wantedLayers,
+            true,
+            {
+              calculation,
+              onProgress: mapProgress(onProgress, runIndex / totalRuns, (runIndex + 1) / totalRuns)
+            }
+          );
 
           if (isSolutionBetter(candidate, best, totalUnits)) {
             best = candidate;
           }
+
+          runIndex++;
+          await calculationCheckpoint(calculation, onProgress, runIndex / totalRuns, Boolean(calculation?.allowYield));
         }
       }
 
-      return best || { type, mode: getEquipmentMode(), bins: [], unplaced: items };
+      return best || { type, mode: getEquipmentMode(), bins: [], unplaced: items, weightLimited: false };
     }
 
-    function tryEliminateSparseBin(solution, wantedLayers) {
+    async function tryEliminateSparseBin(solution, wantedLayers, options = {}) {
       if (solution.bins.length <= 1) return solution;
 
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
       const totalUnits = solutionPlacedUnits(solution) + solution.unplaced.length;
       const order = solution.bins
         .map((bin, idx) => ({ idx, fill: fillRatio(bin), units: bin.items.length }))
         .sort((a, b) => a.fill - b.fill || a.units - b.units);
-
       const heuristics = ['SUPPORT', 'BLF', 'TIGHT', 'WALL'];
+      const totalRuns = Math.max(1, order.length * heuristics.length);
+      let runIndex = 0;
 
       for (const entry of order) {
         const removedItems = solution.bins[entry.idx].items;
         const keptBins = solution.bins.filter((_, i) => i !== entry.idx).map(cloneBin);
 
         for (const heuristic of heuristics) {
-          const repaired = packIntoBins(
+          const repaired = await packIntoBins(
             keptBins,
             [...removedItems].sort((a, b) => b.volume - a.volume || b.area - a.area),
             heuristic,
             solution.type,
             wantedLayers,
-            false
+            false,
+            {
+              calculation,
+              onProgress: mapProgress(onProgress, runIndex / totalRuns, (runIndex + 1) / totalRuns)
+            }
           );
 
-          // Only the items from the removed bin may be newly unplaced here.
-          // Keep any original unplaced items (for example out-of-gauge pallets)
-          // so polishSolution never makes them disappear from the final visual warning.
           if (repaired.unplaced.length === 0) {
             const candidate = {
               type: solution.type,
+              mode: solution.mode,
               bins: repaired.bins,
-              unplaced: [...solution.unplaced]
+              unplaced: [...solution.unplaced],
+              weightLimited: Boolean(solution.weightLimited || repaired.weightLimited),
+              algorithm: solution.algorithm || ''
             };
 
             if (isSolutionBetter(candidate, solution, totalUnits)) {
               return candidate;
             }
           }
+
+          runIndex++;
+          await calculationCheckpoint(calculation, onProgress, runIndex / totalRuns, Boolean(calculation?.allowYield));
         }
       }
 
       return solution;
     }
 
-    function tryPairwiseMerge(solution, wantedLayers) {
+    async function tryPairwiseMerge(solution, wantedLayers, options = {}) {
       if (solution.bins.length <= 1) return solution;
 
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
       const totalUnits = solutionPlacedUnits(solution) + solution.unplaced.length;
+      const pairCount = Math.max(1, (solution.bins.length * (solution.bins.length - 1)) / 2);
+      let pairIndex = 0;
 
       for (let i = 0; i < solution.bins.length; i++) {
         for (let j = i + 1; j < solution.bins.length; j++) {
           const combinedItems = [...solution.bins[i].items, ...solution.bins[j].items];
-          const merged = bestSingleContainerPlan3D(solution.type, combinedItems, wantedLayers, 6);
+          const merged = await bestSingleContainerPlan3D(
+            solution.type,
+            combinedItems,
+            wantedLayers,
+            6,
+            {
+              calculation,
+              onProgress: mapProgress(onProgress, pairIndex / pairCount, (pairIndex + 1) / pairCount)
+            }
+          );
 
           if (merged.items.length === combinedItems.length) {
             const nextBins = solution.bins
               .filter((_, idx) => idx !== i && idx !== j)
               .map(cloneBin);
 
-            nextBins.push({
-              type: solution.type,
-              box: CONTAINERS[solution.type],
-              placements: merged.placements.map(p => ({ ...p })),
-              items: [...merged.items],
-              usedVolume: merged.usedVolume
-            });
+            nextBins.push(makeBinFromSinglePlan(solution.type, merged));
 
             const candidate = {
               type: solution.type,
+              mode: solution.mode,
               bins: nextBins,
-              unplaced: [...solution.unplaced]
+              unplaced: [...solution.unplaced],
+              weightLimited: Boolean(solution.weightLimited || merged.weightLimited),
+              algorithm: solution.algorithm || ''
             };
 
             if (isSolutionBetter(candidate, solution, totalUnits)) {
               return candidate;
             }
           }
+
+          pairIndex++;
+          await calculationCheckpoint(calculation, onProgress, pairIndex / pairCount, Boolean(calculation?.allowYield));
         }
       }
 
       return solution;
     }
 
-    function polishSolution(solution, wantedLayers) {
+    async function polishSolution(solution, wantedLayers, options = {}) {
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
       let current = cloneSolution(solution);
       let improved = true;
       let guard = 0;
+      const maxGuards = 12;
 
-      while (improved && guard < 12) {
+      while (improved && guard < maxGuards) {
+        checkCalculation(calculation);
+        const guardStart = guard / maxGuards;
+        const guardEnd = (guard + 1) / maxGuards;
+        const guardMid = guardStart + ((guardEnd - guardStart) * 0.55);
         guard++;
         improved = false;
 
-        const eliminated = tryEliminateSparseBin(current, wantedLayers);
+        const eliminated = await tryEliminateSparseBin(current, wantedLayers, {
+          calculation,
+          onProgress: mapProgress(onProgress, guardStart, guardMid)
+        });
         if (eliminated !== current && eliminated.bins.length < current.bins.length) {
           current = eliminated;
           improved = true;
+          await calculationCheckpoint(calculation, onProgress, guardEnd, Boolean(calculation?.allowYield));
           continue;
         }
 
-        const merged = tryPairwiseMerge(current, wantedLayers);
+        const merged = await tryPairwiseMerge(current, wantedLayers, {
+          calculation,
+          onProgress: mapProgress(onProgress, guardMid, guardEnd)
+        });
         if (merged !== current && merged.bins.length < current.bins.length) {
           current = merged;
           improved = true;
         }
+
+        await calculationCheckpoint(calculation, onProgress, guardEnd, Boolean(calculation?.allowYield));
       }
 
+      if (typeof onProgress === 'function') onProgress(1);
       return current;
     }
 
     function makeBinFromSinglePlan(type, plan) {
       const box = CONTAINERS[type];
       const placements = plan.placements.map(p => ({ ...p }));
-      return {
+      const bin = {
         type,
         box,
         placements,
         items: [...plan.items],
         usedVolume: plan.usedVolume,
+        usedWeight: Number.isFinite(plan.usedWeight) ? plan.usedWeight : getItemsWeightInfo(plan.items).knownWeight,
+        unknownWeightCount: Number.isFinite(plan.unknownWeightCount) ? plan.unknownWeightCount : getItemsWeightInfo(plan.items).unknownCount,
+        openedByWeight: Boolean(plan.weightLimited),
         overWidthWarning: placements.some(p => placementExceedsNominalWidth(p, box)),
         overHeightWarning: placements.some(p => placementExceedsNominalHeight(p, box) && !box?.topLoad)
       };
+      syncBinWeightTotals(bin);
+      return bin;
     }
 
     function isShrinkCandidateBetter(a, b, mode) {
@@ -2684,16 +3031,28 @@
       return fillRatio(a) > fillRatio(b);
     }
 
-    function shrinkBinsToSmallestPossibleType(solution, wantedLayers, mode = getEquipmentMode()) {
-      const shrunkBins = solution.bins.map(bin => {
+    async function shrinkBinsToSmallestPossibleType(solution, wantedLayers, mode = getEquipmentMode(), options = {}) {
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
+      const shrunkBins = [];
+      const totalBins = Math.max(1, solution.bins.length);
+
+      for (let binIndex = 0; binIndex < solution.bins.length; binIndex++) {
+        const bin = solution.bins[binIndex];
         const allowedTypes = getContainerOrder(mode)
           .filter(type => containerRank(type, mode) <= containerRank(bin.type, mode))
           .sort((a, b) => containerRank(a, mode) - containerRank(b, mode));
-
         let bestBin = cloneBin(bin);
+        const totalTypes = Math.max(1, allowedTypes.length);
 
-        for (const type of allowedTypes) {
-          const plan = bestSingleContainerPlan3D(type, bin.items, wantedLayers, 5);
+        for (let typeIndex = 0; typeIndex < allowedTypes.length; typeIndex++) {
+          const type = allowedTypes[typeIndex];
+          const localStart = (binIndex + (typeIndex / totalTypes)) / totalBins;
+          const localEnd = (binIndex + ((typeIndex + 1) / totalTypes)) / totalBins;
+          const plan = await bestSingleContainerPlan3D(type, bin.items, wantedLayers, 5, {
+            calculation,
+            onProgress: mapProgress(onProgress, localStart, localEnd)
+          });
 
           if (plan.items.length === bin.items.length) {
             const candidateBin = makeBinFromSinglePlan(type, plan);
@@ -2703,37 +3062,68 @@
           }
         }
 
-        return bestBin;
-      });
+        shrunkBins.push(bestBin);
+        await calculationCheckpoint(calculation, onProgress, (binIndex + 1) / totalBins, Boolean(calculation?.allowYield));
+      }
 
       return {
         type: solution.type,
         mode,
         bins: shrunkBins,
-        unplaced: [...solution.unplaced]
+        unplaced: [...solution.unplaced],
+        weightLimited: Boolean(solution.weightLimited || shrunkBins.some(bin => bin.openedByWeight)),
+        algorithm: solution.algorithm || ''
       };
     }
 
-    function buildOptimizedMixedSolution(items, wantedLayers, mode = getEquipmentMode()) {
+    async function buildOptimizedMixedSolution(items, wantedLayers, mode = getEquipmentMode(), options = {}) {
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
       let best = null;
       const types = getContainerOrder(mode);
       const startTypes = mode === 'flatRack'
         ? types
         : (types.length > 1 ? types.slice(1) : types);
+      const totalStarts = Math.max(1, startTypes.length);
 
-      for (const startType of startTypes) {
-        let solution = solveOpenBins3D(items, startType, wantedLayers);
+      for (let startIndex = 0; startIndex < startTypes.length; startIndex++) {
+        const startType = startTypes[startIndex];
+        const segmentStart = startIndex / totalStarts;
+        const segmentEnd = (startIndex + 1) / totalStarts;
+        const solveEnd = segmentStart + ((segmentEnd - segmentStart) * 0.55);
+        const polishEnd = segmentStart + ((segmentEnd - segmentStart) * 0.80);
+
+        let solution = await solveOpenBins3D(items, startType, wantedLayers, {
+          calculation,
+          onProgress: mapProgress(onProgress, segmentStart, solveEnd)
+        });
         solution.mode = mode;
-        solution = polishSolution(solution, wantedLayers);
+        solution = await polishSolution(solution, wantedLayers, {
+          calculation,
+          onProgress: mapProgress(onProgress, solveEnd, polishEnd)
+        });
         solution.mode = mode;
-        solution = shrinkBinsToSmallestPossibleType(solution, wantedLayers, mode);
+        solution = await shrinkBinsToSmallestPossibleType(solution, wantedLayers, mode, {
+          calculation,
+          onProgress: mapProgress(onProgress, polishEnd, segmentEnd)
+        });
+        solution.algorithm = 'Optimerad';
 
         if (isSolutionBetter(solution, best, items.length)) {
           best = solution;
         }
+
+        await calculationCheckpoint(calculation, onProgress, segmentEnd, Boolean(calculation?.allowYield));
       }
 
-      return best || { type: getLargestContainerType(mode), mode, bins: [], unplaced: items };
+      return best || {
+        type: getLargestContainerType(mode),
+        mode,
+        bins: [],
+        unplaced: items,
+        weightLimited: false,
+        algorithm: 'Optimerad'
+      };
     }
 
     function theoreticalUpperBound(box, pallet, wantedLayers) {
@@ -2767,17 +3157,26 @@
       return Math.max(0, Math.min(areaUpper, volumeUpper));
     }
 
-    function canFitCountInSingleContainer(type, pallet, count, wantedLayers) {
+    async function canFitCountInSingleContainer(type, pallet, count, wantedLayers, options = {}) {
       if (count <= 0) return true;
 
-      const items = buildSingleItems(pallet.L, pallet.W, pallet.H, count, { lockRotation: Boolean(pallet.lockRotation) });
-      const plan = bestSingleContainerPlan3D(type, items, wantedLayers, count <= 30 ? 8 : 5);
+      const items = buildSingleItems(pallet.L, pallet.W, pallet.H, count, {
+        lockRotation: Boolean(pallet.lockRotation),
+        weight: pallet.weight
+      });
+      const plan = await bestSingleContainerPlan3D(
+        type,
+        items,
+        wantedLayers,
+        count <= 30 ? 8 : 5,
+        options
+      );
 
       return plan.placedUnits === count;
     }
 
-    function estimateSingleCapacity3D(type, pallet, wantedLayers) {
-      const key = `${type}|${pallet.L}|${pallet.W}|${pallet.H}|${wantedLayers}|${pallet.lockRotation ? 1 : 0}`;
+    async function estimateSingleCapacity3D(type, pallet, wantedLayers, options = {}) {
+      const key = `${type}|${pallet.L}|${pallet.W}|${pallet.H}|${pallet.weight ?? ''}|${wantedLayers}|${pallet.lockRotation ? 1 : 0}|${getMaxContainerWeight()}`;
 
       if (singleCapacityCache.has(key)) return singleCapacityCache.get(key);
 
@@ -2791,13 +3190,13 @@
       let lo = 0;
       let hi = 1;
 
-      while (hi < upper && canFitCountInSingleContainer(type, pallet, hi, wantedLayers)) {
+      while (hi < upper && await canFitCountInSingleContainer(type, pallet, hi, wantedLayers, options)) {
         lo = hi;
         hi = Math.min(upper, hi * 2);
         if (hi === lo) break;
       }
 
-      if (hi === upper && canFitCountInSingleContainer(type, pallet, hi, wantedLayers)) {
+      if (hi === upper && await canFitCountInSingleContainer(type, pallet, hi, wantedLayers, options)) {
         singleCapacityCache.set(key, hi);
         return hi;
       }
@@ -2805,7 +3204,7 @@
       while (lo + 1 < hi) {
         const mid = Math.floor((lo + hi) / 2);
 
-        if (canFitCountInSingleContainer(type, pallet, mid, wantedLayers)) {
+        if (await canFitCountInSingleContainer(type, pallet, mid, wantedLayers, options)) {
           lo = mid;
         } else {
           hi = mid;
@@ -2814,6 +3213,218 @@
 
       singleCapacityCache.set(key, lo);
       return lo;
+    }
+
+    function weightsMatchForIdenticalItems(a, b) {
+      const knownA = itemHasKnownWeight(a);
+      const knownB = itemHasKnownWeight(b);
+      if (knownA !== knownB) return false;
+      return !knownA || Math.abs(getItemWeight(a) - getItemWeight(b)) <= EPS;
+    }
+
+    function itemsAreIdentical(items) {
+      if (!items?.length) return false;
+      const first = items[0];
+
+      return items.every(item => (
+        Math.abs(item.L - first.L) <= EPS &&
+        Math.abs(item.W - first.W) <= EPS &&
+        Math.abs(item.H - first.H) <= EPS &&
+        Boolean(item.lockRotation) === Boolean(first.lockRotation) &&
+        weightsMatchForIdenticalItems(item, first)
+      ));
+    }
+
+    async function buildIdenticalContainerTemplate(type, prototype, totalCount, wantedLayers, options = {}) {
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
+      const upper = Math.min(totalCount, theoreticalUpperBound(CONTAINERS[type], prototype, wantedLayers));
+
+      if (upper <= 0) {
+        if (typeof onProgress === 'function') onProgress(1);
+        return {
+          type,
+          geometryCapacity: 0,
+          effectiveCapacity: 0,
+          weightLimited: false,
+          placements: []
+        };
+      }
+
+      const templateItems = buildSingleItems(prototype.L, prototype.W, prototype.H, upper, {
+        lockRotation: Boolean(prototype.lockRotation),
+        weight: ''
+      });
+      const geometryPlan = await bestSingleContainerPlan3D(type, templateItems, wantedLayers, 0, {
+        calculation,
+        onProgress,
+        ignoreWeight: true,
+        identicalItems: true
+      });
+      const geometryCapacity = geometryPlan?.placedUnits || 0;
+      const maxByWeight = itemHasKnownWeight(prototype) && getItemWeight(prototype) > EPS
+        ? Math.max(0, Math.floor((getMaxContainerWeight() + EPS) / getItemWeight(prototype)))
+        : Number.POSITIVE_INFINITY;
+      const effectiveCapacity = Math.max(0, Math.min(geometryCapacity, maxByWeight));
+
+      return {
+        type,
+        geometryCapacity,
+        effectiveCapacity,
+        weightLimited: effectiveCapacity < geometryCapacity,
+        placements: (geometryPlan?.placements || []).slice(0, effectiveCapacity).map(p => ({ ...p }))
+      };
+    }
+
+    function isFastContainerPlanBetter(candidate, current, totalCount) {
+      if (!current) return true;
+      if (candidate.sequence.length !== current.sequence.length) {
+        return candidate.sequence.length < current.sequence.length;
+      }
+      if (candidate.rank !== current.rank) return candidate.rank < current.rank;
+
+      const candidateExcess = Math.max(0, candidate.capacity - totalCount);
+      const currentExcess = Math.max(0, current.capacity - totalCount);
+      if (candidateExcess !== currentExcess) return candidateExcess < currentExcess;
+
+      return candidate.sequence.join('|') < current.sequence.join('|');
+    }
+
+    function findFastContainerSequence(totalCount, templates, mode, capacityField = 'effectiveCapacity') {
+      const usable = templates.filter(template => Number(template[capacityField]) > 0);
+      if (!usable.length || totalCount <= 0) return totalCount <= 0 ? [] : null;
+
+      const states = Array(totalCount + 1).fill(null);
+      states[0] = { sequence: [], rank: 0, capacity: 0 };
+
+      for (let covered = 0; covered < totalCount; covered++) {
+        const state = states[covered];
+        if (!state) continue;
+
+        for (const template of usable) {
+          const capacity = Number(template[capacityField]);
+          const nextCovered = Math.min(totalCount, covered + capacity);
+          const candidate = {
+            sequence: [...state.sequence, template.type],
+            rank: state.rank + containerRank(template.type, mode),
+            capacity: state.capacity + capacity
+          };
+
+          if (isFastContainerPlanBetter(candidate, states[nextCovered], totalCount)) {
+            states[nextCovered] = candidate;
+          }
+        }
+      }
+
+      return states[totalCount]?.sequence || null;
+    }
+
+    function buildBinFromIdenticalTemplate(template, assignedItems) {
+      const box = CONTAINERS[template.type];
+      const sourcePlacements = template.placements.slice(0, assignedItems.length);
+      const idMap = new Map();
+
+      sourcePlacements.forEach((placement, idx) => {
+        idMap.set(placement.baseId, assignedItems[idx]?.baseId);
+      });
+
+      const placements = sourcePlacements.map((placement, idx) => {
+        const item = assignedItems[idx];
+        return {
+          ...placement,
+          baseId: item.baseId,
+          supportId: placement.supportId ? (idMap.get(placement.supportId) || null) : null,
+          item
+        };
+      });
+
+      const bin = {
+        type: template.type,
+        box,
+        placements,
+        items: [...assignedItems],
+        usedVolume: assignedItems.reduce((sum, item) => sum + item.volume, 0),
+        usedWeight: 0,
+        unknownWeightCount: 0,
+        openedByWeight: Boolean(template.weightLimited),
+        overWidthWarning: placements.some(p => placementExceedsNominalWidth(p, box)),
+        overHeightWarning: placements.some(p => placementExceedsNominalHeight(p, box) && !box?.topLoad)
+      };
+      syncBinWeightTotals(bin);
+      return bin;
+    }
+
+    async function buildFastIdenticalSolution(items, wantedLayers, mode = getEquipmentMode(), options = {}) {
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
+      const prototype = items[0];
+      const types = getContainerOrder(mode);
+      const templates = [];
+      const totalTypes = Math.max(1, types.length);
+
+      for (let typeIndex = 0; typeIndex < types.length; typeIndex++) {
+        const template = await buildIdenticalContainerTemplate(
+          types[typeIndex],
+          prototype,
+          items.length,
+          wantedLayers,
+          {
+            calculation,
+            onProgress: mapProgress(onProgress, typeIndex / totalTypes, (typeIndex + 1) / totalTypes)
+          }
+        );
+        templates.push(template);
+        await calculationCheckpoint(calculation, onProgress, (typeIndex + 1) / totalTypes, Boolean(calculation?.allowYield));
+      }
+
+      const sequence = findFastContainerSequence(items.length, templates, mode, 'effectiveCapacity');
+      const geometrySequence = findFastContainerSequence(items.length, templates, mode, 'geometryCapacity');
+
+      if (!sequence) {
+        return {
+          solution: {
+            type: getLargestContainerType(mode),
+            mode,
+            bins: [],
+            unplaced: [...items],
+            algorithm: 'Snabb',
+            weightLimited: Boolean(geometrySequence)
+          },
+          templates
+        };
+      }
+
+      const templateByType = new Map(templates.map(template => [template.type, template]));
+      const bins = [];
+      let itemIndex = 0;
+
+      for (const type of sequence) {
+        const template = templateByType.get(type);
+        const count = Math.min(template.effectiveCapacity, items.length - itemIndex);
+        const assignedItems = items.slice(itemIndex, itemIndex + count);
+        bins.push(buildBinFromIdenticalTemplate(template, assignedItems));
+        itemIndex += count;
+      }
+
+      const weightLimited = Boolean(
+        geometrySequence &&
+        (
+          geometrySequence.length < sequence.length ||
+          geometrySequence.join('|') !== sequence.join('|')
+        )
+      );
+
+      return {
+        solution: {
+          type: sequence[sequence.length - 1] || getLargestContainerType(mode),
+          mode,
+          bins,
+          unplaced: items.slice(itemIndex),
+          algorithm: 'Snabb',
+          weightLimited
+        },
+        templates
+      };
     }
 
     // -------------------------------
@@ -3752,10 +4363,43 @@
     }
 
     function stopCameraMomentum() {
-      const previousDamping = controls.enableDamping;
-      controls.enableDamping = false;
+      const enabled = Boolean(controls?.enabled);
+      recreateOrbitControls(enabled);
+    }
+
+    function applyCameraState(state) {
+      if (!state) return;
+
+      const enabled = Boolean(controls?.enabled);
+      stopCameraMomentum();
+      controls.enabled = enabled;
+      camera.position.copy(state.position);
+      camera.up.copy(state.up || new THREE.Vector3(0, 1, 0));
+      controls.target.copy(state.target);
+      camera.lookAt(state.target);
       controls.update();
-      controls.enableDamping = previousDamping;
+      camera.position.copy(state.position);
+      controls.target.copy(state.target);
+      camera.lookAt(state.target);
+      camera.updateMatrixWorld(true);
+    }
+
+    function setCameraUnlocked(unlocked) {
+      freeCam = Boolean(unlocked);
+      hideRotatePalletButton();
+      resetPalletPointerDownState();
+      palletDragState = null;
+      recreateOrbitControls(freeCam);
+
+      if (!freeCam) {
+        if (lockedCameraState) {
+          applyCameraState(lockedCameraState);
+        } else {
+          autoFitCamera(true);
+        }
+      }
+
+      updateCameraToggleUi();
     }
 
     function isCameraInteractionMode() {
@@ -3883,11 +4527,13 @@
     }
 
     function resetPalletPointerDownState(event = null) {
+      const pointerId = event?.pointerId ?? palletPointerDownPointerId;
       if (
-        event?.pointerId !== undefined &&
-        renderer.domElement.hasPointerCapture?.(event.pointerId)
+        pointerId !== null &&
+        pointerId !== undefined &&
+        renderer.domElement.hasPointerCapture?.(pointerId)
       ) {
-        renderer.domElement.releasePointerCapture(event.pointerId);
+        renderer.domElement.releasePointerCapture(pointerId);
       }
 
       palletPointerDownHit = null;
@@ -4065,6 +4711,10 @@
       return {
         reqText: els.reqText.innerText,
         volTotal: els.volTotal.innerText,
+        weightTotal: els.weightTotal.innerText,
+        containerWeights: els.containerWeights.innerText,
+        calculationMethod: els.calculationMethod.innerText,
+        limitReason: els.limitReason.innerText,
         msgBoxHtml: els.msgBox.innerHTML,
         capacitySlots: capacitySlots.map(slot => ({
           hidden: slot.row.hidden,
@@ -4079,6 +4729,10 @@
 
       els.reqText.innerText = snapshot.reqText ?? '-';
       els.volTotal.innerText = snapshot.volTotal ?? '-';
+      els.weightTotal.innerText = snapshot.weightTotal ?? '-';
+      els.containerWeights.innerText = snapshot.containerWeights ?? '-';
+      els.calculationMethod.innerText = snapshot.calculationMethod ?? '-';
+      els.limitReason.innerText = snapshot.limitReason ?? '-';
       els.msgBox.innerHTML = snapshot.msgBoxHtml ?? '';
 
       const capacitySlots = [
@@ -4154,6 +4808,7 @@
       if (!solution) return;
 
       const mode = solution.mode || getEquipmentMode();
+      solution.algorithm = 'Manuell';
       els.reqText.innerText = formatContainerCounts(solution.bins || [], mode);
 
       const notes = [];
@@ -4175,6 +4830,7 @@
       els.msgBox.innerHTML = notes.length
         ? notes.join('<br>')
         : '<span class="success">Alla pallar placerades manuellt.</span>';
+      updateSolutionStats(solution);
     }
 
     function updateManualModeUi() {
@@ -4222,6 +4878,7 @@
         equipmentMode: getEquipmentMode(),
         stackable: Boolean(els.stack.checked),
         layers: els.layers.value ?? '',
+        maxContainerWeight: els.maxContainerWeight.value ?? '',
         rows: getPalletRowsInputState()
       });
     }
@@ -4237,6 +4894,7 @@
 
     function enterManualMode() {
       manualSolution = lastRenderedSolution;
+      if (manualSolution) manualSolution.algorithm = 'Manuell';
 
       if (!manualMode) {
         manualMode = true;
@@ -4932,6 +5590,7 @@
       }
 
       bin.usedVolume = Math.max(0, (bin.usedVolume || 0) - (placement.item?.volume || placement.L * placement.W * placement.H));
+      syncBinWeightTotals(bin);
       refreshBinWarningFlags(bin);
     }
 
@@ -5200,8 +5859,29 @@
     // UPPDATERINGAR
     // -------------------------------
 
-    function updateMixedMode() {
+    function setTotalInputStats(items = [], pallets = []) {
+      els.volTotal.innerText = `${totalVolumeOfPallets(pallets).toFixed(2)} m³`;
+      els.weightTotal.innerText = formatWeightInfo(getItemsWeightInfo(items));
+    }
+
+    function formatContainerWeightSummary(solution) {
+      if (!solution?.bins?.length) return '-';
+
+      return solution.bins
+        .map((bin, idx) => `${idx + 1}: ${formatWeightInfo(getBinWeightInfo(bin))}`)
+        .join(' · ');
+    }
+
+    function updateSolutionStats(solution = null) {
+      els.containerWeights.innerText = formatContainerWeightSummary(solution);
+      els.calculationMethod.innerText = solution?.algorithm || '-';
+      els.limitReason.innerText = solution?.weightLimited ? 'Vikt' : '-';
+    }
+
+    async function updateMixedMode(calculation = null, onProgress = null) {
+      checkCalculation(calculation);
       updateEquipmentUi();
+      if (typeof onProgress === 'function') onProgress(0.01);
 
       const mode = getEquipmentMode();
       const rowDefinitions = readPalletRowDefinitions();
@@ -5212,89 +5892,156 @@
       if (!pallets.length) {
         els.reqText.innerText = '0 pallar';
         setCapacityRows(capacityTypes.map(type => ({ type, value: '-' })));
-        els.volTotal.innerText = '0.00 m³';
-        showEmpty20Container("Inga giltiga pallrader angivna.");
+        setTotalInputStats([], []);
+        updateSolutionStats(null);
+        showEmpty20Container('Inga giltiga pallrader angivna.');
+        if (typeof onProgress === 'function') onProgress(1);
         return;
       }
 
       const items = buildItemsFromPallets(pallets);
       const tooTallItems = items.filter(palletTooTallForEveryContainer);
-      const packableItems = items.filter(item => !palletTooTallForEveryContainer(item));
+      const tooHeavyItems = items.filter(item => itemTooHeavyForContainer(item));
+      const excludedIds = new Set([...tooTallItems, ...tooHeavyItems].map(item => item.baseId));
+      const packableItems = items.filter(item => !excludedIds.has(item.baseId));
+      const useFastPath = itemsAreIdentical(items);
+      let solution;
+      let capacityRows = [];
 
-      const capacityRows = capacityTypes.map(type => {
-        const plan = bestSingleContainerPlan3D(type, packableItems, wantedLayers, 8);
-        return { type, value: `${plan.placedUnits} st` };
-      });
+      setTotalInputStats(items, pallets);
+      updateSolutionStats({ algorithm: useFastPath ? 'Snabb' : 'Optimerad', bins: [], weightLimited: false });
+      await calculationCheckpoint(calculation, onProgress, 0.03, Boolean(calculation?.allowYield));
 
+      if (useFastPath) {
+        const fastResult = await buildFastIdenticalSolution(items, wantedLayers, mode, {
+          calculation,
+          onProgress: mapProgress(onProgress, 0.03, 0.86)
+        });
+        solution = fastResult.solution;
+        const templatesByType = new Map(fastResult.templates.map(template => [template.type, template]));
+        capacityRows = capacityTypes.map(type => ({
+          type,
+          value: `${templatesByType.get(type)?.effectiveCapacity || 0} st`
+        }));
+      } else {
+        const totalCapacityTypes = Math.max(1, capacityTypes.length);
+
+        for (let index = 0; index < capacityTypes.length; index++) {
+          const type = capacityTypes[index];
+          const segmentStart = 0.03 + ((0.25 * index) / totalCapacityTypes);
+          const segmentEnd = 0.03 + ((0.25 * (index + 1)) / totalCapacityTypes);
+          const plan = packableItems.length
+            ? await bestSingleContainerPlan3D(type, packableItems, wantedLayers, 6, {
+                calculation,
+                onProgress: mapProgress(onProgress, segmentStart, segmentEnd)
+              })
+            : { placedUnits: 0 };
+          capacityRows.push({ type, value: `${plan.placedUnits || 0} st` });
+        }
+
+        solution = packableItems.length
+          ? await buildOptimizedMixedSolution(packableItems, wantedLayers, mode, {
+              calculation,
+              onProgress: mapProgress(onProgress, 0.28, 0.86)
+            })
+          : {
+              type: getLargestContainerType(mode),
+              mode,
+              bins: [],
+              unplaced: [],
+              algorithm: 'Optimerad',
+              weightLimited: tooHeavyItems.length > 0
+            };
+
+        solution.unplaced = uniqueItemsByBaseId([
+          ...(solution.unplaced || []),
+          ...tooTallItems,
+          ...tooHeavyItems
+        ]);
+        solution.algorithm = 'Optimerad';
+        solution.weightLimited = Boolean(solution.weightLimited || tooHeavyItems.length > 0);
+      }
+
+      solution.algorithm = solution.algorithm || (useFastPath ? 'Snabb' : 'Optimerad');
+      solution.weightLimited = Boolean(solution.weightLimited || tooHeavyItems.length > 0);
+      checkCalculation(calculation);
       setCapacityRows(capacityRows);
-      els.volTotal.innerText = totalVolumeOfPallets(pallets).toFixed(2) + ' m³';
 
-      const solution = packableItems.length
-        ? buildOptimizedMixedSolution(packableItems, wantedLayers, mode)
-        : { type: getLargestContainerType(mode), mode, bins: [], unplaced: [] };
-
-      const nonHeightUnplaced = solution.unplaced.filter(item => !palletTooTallForEveryContainer(item));
-      const allUnplacedItems = uniqueItemsByBaseId([...solution.unplaced, ...tooTallItems]);
+      const nonSpecialUnplaced = (solution.unplaced || []).filter(item => (
+        !palletTooTallForEveryContainer(item) &&
+        !itemTooHeavyForContainer(item)
+      ));
+      const allUnplacedItems = uniqueItemsByBaseId(solution.unplaced || []);
       const visualSolution = {
         type: solution.type,
         mode: solution.mode || mode,
         bins: solution.bins.length ? solution.bins : [createEmptyBin(getLargestContainerType(mode))],
-        unplaced: allUnplacedItems
+        unplaced: allUnplacedItems,
+        algorithm: solution.algorithm || (useFastPath ? 'Snabb' : 'Optimerad'),
+        weightLimited: Boolean(solution.weightLimited)
       };
 
       if (!solution.bins.length) {
         els.reqText.innerText = 'Godset för stort!';
-
         const messages = [];
 
         if (tooTallItems.length > 0) {
           messages.push('<span class="warning">Out of gauge! Kontakta Adrian Keuneke asap!</span>');
         }
 
-        if (nonHeightUnplaced.length > 0) {
-          messages.push(`<span class="warning">${nonHeightUnplaced.length} pall(ar) kunde inte placeras i vald containertyp.</span>`);
+        if (tooHeavyItems.length > 0) {
+          messages.push(`<span class="warning">Övervikt: ${tooHeavyItems.length} pall(ar).</span>`);
+        }
+
+        if (nonSpecialUnplaced.length > 0) {
+          messages.push(`<span class="warning">Ej placerade: ${nonSpecialUnplaced.length} pall(ar).</span>`);
         }
 
         if (!messages.length) {
-          messages.push('<span class="warning">Ingen pallrad fick plats i vald containertyp.</span>');
+          messages.push('<span class="warning">Ej placerade.</span>');
         }
 
         els.msgBox.innerHTML = messages.join('<br>');
-
+        updateSolutionStats(solution);
         build3DSceneFromSolution(visualSolution);
         autoFitCamera();
-
+        if (typeof onProgress === 'function') onProgress(1);
         return;
       }
 
       els.reqText.innerText = formatContainerCounts(solution.bins, mode);
-
       const notes = [];
-
       const widthWarningCount = solutionWidthWarningCount(solution);
       const openTopOverheightCount = solutionOpenTopOverheightCount(solution);
+
       if (widthWarningCount > 0) {
-        notes.push(`<span class="warning">Överbredd på flat rack: ${widthWarningCount} pall(ar).</span>`);
+        notes.push(`<span class="warning">Överbredd: ${widthWarningCount} pall(ar).</span>`);
       }
 
       if (openTopOverheightCount > 0) {
-        notes.push(`<span>Open top överhöjd: ${openTopOverheightCount} pall(ar).</span>`);
+        notes.push(`<span>Överhöjd: ${openTopOverheightCount} pall(ar).</span>`);
       }
 
-      if (nonHeightUnplaced.length > 0) {
-        notes.push(`<span class="warning">${nonHeightUnplaced.length} pall(ar) kunde inte placeras.</span>`);
+      if (nonSpecialUnplaced.length > 0) {
+        notes.push(`<span class="warning">Ej placerade: ${nonSpecialUnplaced.length} pall(ar).</span>`);
       }
 
       if (tooTallItems.length > 0) {
         notes.push(`<span class="warning">Out of gauge: ${tooTallItems.length} pall(ar).</span>`);
       }
 
+      if (tooHeavyItems.length > 0) {
+        notes.push(`<span class="warning">Övervikt: ${tooHeavyItems.length} pall(ar).</span>`);
+      }
+
       els.msgBox.innerHTML = notes.length
         ? notes.join('<br>')
         : '<span class="success">Alla pallar placerades.</span>';
 
+      updateSolutionStats(solution);
       build3DSceneFromSolution(visualSolution);
       autoFitCamera();
+      await calculationCheckpoint(calculation, onProgress, 1, Boolean(calculation?.allowYield));
     }
 
     // -------------------------------
@@ -5324,32 +6071,45 @@
       });
     }
 
-    function autoFitCamera(force = false) {
-      if (freeCam && hasAutoFittedScene && !force) return;
-
+    function getAutoFitCameraState() {
       const box = new THREE.Box3().setFromObject(mainGroup);
-      if (!Number.isFinite(box.min.x) || !Number.isFinite(box.max.x)) return;
+      if (!Number.isFinite(box.min.x) || !Number.isFinite(box.max.x)) return null;
 
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
       const maxDim = Math.max(size.x, size.y, size.z, 400);
       const camDist = maxDim * CAM_CONFIG.distanceMult;
-
-      const targetPoint = new THREE.Vector3(
+      const target = new THREE.Vector3(
         center.x + CAM_CONFIG.shiftX,
         center.y + CAM_CONFIG.shiftY,
         center.z + CAM_CONFIG.shiftZ
       );
-
-      camera.position.set(
-        targetPoint.x + (camDist * CAM_CONFIG.xAngleMult),
-        targetPoint.y + (camDist * CAM_CONFIG.yAngleMult),
-        targetPoint.z + (camDist * CAM_CONFIG.zAngleMult)
+      const position = new THREE.Vector3(
+        target.x + (camDist * CAM_CONFIG.xAngleMult),
+        target.y + (camDist * CAM_CONFIG.yAngleMult),
+        target.z + (camDist * CAM_CONFIG.zAngleMult)
       );
 
-      camera.lookAt(targetPoint);
-      controls.target.copy(targetPoint);
-      controls.update();
+      return {
+        position,
+        target,
+        up: new THREE.Vector3(0, 1, 0)
+      };
+    }
+
+    function autoFitCamera(force = false) {
+      const nextState = getAutoFitCameraState();
+      if (!nextState) return;
+
+      lockedCameraState = {
+        position: nextState.position.clone(),
+        target: nextState.target.clone(),
+        up: nextState.up.clone()
+      };
+
+      if (freeCam && hasAutoFittedScene && !force) return;
+
+      applyCameraState(lockedCameraState);
       hasAutoFittedScene = true;
     }
 
@@ -5357,10 +6117,24 @@
       return readPalletRowDefinitions().reduce((sum, row) => sum + row.count, 0);
     }
 
-    function showLoadingBar() {
+    function setLoadingProgress(progress, title = 'Beräknar packning') {
+      const requested = Math.max(0, Math.min(100, Math.round(Number(progress) || 0)));
+      const percent = lastLoadingProgress < 0 ? requested : Math.max(lastLoadingProgress, requested);
+      if (percent === lastLoadingProgress && els.loadingTitle.textContent === title) return;
+
+      lastLoadingProgress = percent;
+      els.loadingTitle.textContent = title;
+      els.loadingPercent.textContent = `${percent}%`;
+      els.loadingBarFill.style.width = `${percent}%`;
+      els.loadingBarFill.parentElement?.setAttribute('aria-valuenow', String(percent));
+    }
+
+    function showLoadingBar(title = 'Beräknar packning') {
       clearTimeout(hideLoadingTimer);
       loadingToken++;
       loadingVisibleSince = performance.now();
+      lastLoadingProgress = -1;
+      setLoadingProgress(0, title);
       els.loadingOverlay.hidden = false;
       els.container.classList.add('is-calculating');
       return loadingToken;
@@ -5384,6 +6158,7 @@
       clearTimeout(hideLoadingTimer);
       els.loadingOverlay.hidden = true;
       els.container.classList.remove('is-calculating');
+      lastLoadingProgress = -1;
     }
 
     // -------------------------------
@@ -5524,6 +6299,13 @@
       ]);
     }
 
+    function getBinWeightSummaryForPdf(bin) {
+      const info = getBinWeightInfo(bin);
+      if (!info.knownCount) return '-';
+      const suffix = info.unknownCount > 0 ? ` (${info.knownCount}/${info.totalCount})` : '';
+      return `${formatPdfNumber(info.knownWeight, 1)} kg${suffix}`;
+    }
+
     function getPdfStatusForBin(bin) {
       const status = [];
 
@@ -5543,6 +6325,7 @@
         `${idx + 1}`,
         formatContainerType(bin.type),
         `${bin.items?.length || bin.placements?.length || 0}`,
+        getBinWeightSummaryForPdf(bin),
         `${formatPdfNumber(fillRatio(bin) * 100, 1)}%`,
         getPdfStatusForBin(bin)
       ]);
@@ -5560,6 +6343,7 @@
       if (widthWarnings > 0) notes.push(`Flat rack overwidth: ${widthWarnings} pallet(s).`);
       if (openTopOverheight > 0) notes.push(`Open top overheight: ${openTopOverheight} pallet(s).`);
       if (heightWarnings > 0) notes.push(`Height warning: ${heightWarnings} container(s).`);
+      if (solution.weightLimited) notes.push('Weight limit.');
       if (unplaced > 0) notes.push(`Unplaced pallets: ${unplaced}.`);
 
       return notes.join(' ');
@@ -5579,6 +6363,9 @@
         ['Total pallets', `${totalPallets}`],
         ['Total volume', getTotalVolumeSummaryForPdf(rows)],
         ['Total weight', getWeightSummaryForPdf(rows)],
+        ['Max weight / container', `${formatPdfNumber(getMaxContainerWeight(), 1)} kg`],
+        ['Calculation', solution?.algorithm || '-'],
+        ['Limit', solution?.weightLimited ? 'Weight' : '-'],
         ['Equipment type', modeConfig.label],
         ['Stackable', els.stack.checked ? `Yes, ${getWantedLayers()} layer(s)` : 'No'],
         ['Unplaced', `${unplaced}`],
@@ -5635,8 +6422,8 @@
     function restoreCameraState(state) {
       if (!state) return;
 
-      freeCam = state.freeCam;
-      controls.enabled = state.controlsEnabled;
+      freeCam = Boolean(state.freeCam);
+      recreateOrbitControls(Boolean(state.controlsEnabled));
       camera.position.copy(state.cameraPosition);
       camera.quaternion.copy(state.cameraQuaternion);
       camera.up.copy(state.cameraUp);
@@ -6511,7 +7298,7 @@
     function drawContainerSummaryLine(doc, bin, idx, y) {
       const pageW = doc.internal.pageSize.getWidth();
       const pallets = bin.items?.length || bin.placements?.length || 0;
-      const text = `Container ${idx + 1} | ${formatContainerType(bin.type)} | Pallets: ${pallets} | Fill: ${formatPdfNumber(fillRatio(bin) * 100, 1)}% | Status: ${getPdfStatusForBin(bin)}`;
+      const text = `Container ${idx + 1} | ${formatContainerType(bin.type)} | Pallets: ${pallets} | Weight: ${getBinWeightSummaryForPdf(bin)} | Fill: ${formatPdfNumber(fillRatio(bin) * 100, 1)}% | Status: ${getPdfStatusForBin(bin)}`;
 
       doc.setFillColor(255, 255, 255);
       doc.roundedRect(10, y, pageW - 20, 10, 2, 2, 'F');
@@ -6546,6 +7333,9 @@
 
       if (!lastRenderedSolution) {
         update(true);
+        while (activeCalculation) {
+          await new Promise(resolve => window.setTimeout(resolve, 10));
+        }
         await nextFrame();
       }
 
@@ -6604,11 +7394,11 @@
 
         y = drawPdfTable(
           doc,
-          ['#', 'Equipment', 'Pallets', 'Fill rate', 'Status'],
+          ['#', 'Equipment', 'Pallets', 'Weight', 'Fill rate', 'Status'],
           getSolutionRowsForPdf(exportSolution),
           10,
           y + 4,
-          [18, 48, 32, 36, 70],
+          [16, 42, 26, 38, 32, 58],
           { title: 'Equipment' }
         );
 
@@ -6647,7 +7437,7 @@
         }
 
         doc.save(`pallet-packing-report ${fileStamp}.pdf`);
-        els.importMsg.innerHTML = '<span class="success">PDF exported.</span>';
+        els.importMsg.innerHTML = '<span class="success">PDF exporterad.</span>';
       } finally {
         restoreSceneAfterPdfExport(originalSolution, originalCameraState, originalManualSolution);
         els.exportPdfBtn.disabled = false;
@@ -6655,8 +7445,34 @@
       }
     }
 
-    function runUpdate() {
-      updateMixedMode();
+    function cancelActiveCalculation() {
+      if (activeCalculation) activeCalculation.cancelled = true;
+      activeCalculation = null;
+    }
+
+    async function runUpdate(calculation, loadingId = null) {
+      const showProgress = loadingId !== null;
+
+      try {
+        await updateMixedMode(
+          calculation,
+          showProgress ? progress => setLoadingProgress(progress * 100) : null
+        );
+
+        checkCalculation(calculation);
+        if (showProgress) {
+          setLoadingProgress(100);
+          await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+      } catch (error) {
+        if (!(error instanceof CalculationCancelledError)) {
+          console.error(error);
+          els.importMsg.innerHTML = `<span class="warning">Beräkningsfel: ${escapeHtml(error?.message || error)}</span>`;
+        }
+      } finally {
+        if (activeCalculation === calculation) activeCalculation = null;
+        if (showProgress) hideLoadingBar(loadingId, true);
+      }
     }
 
     function update(force = false) {
@@ -6667,6 +7483,8 @@
       lastUpdateInputSignature = inputSignature;
 
       clearTimeout(updateDelayTimer);
+      cancelActiveCalculation();
+      updateJobId++;
 
       if (syncManualModeWithEquipmentMode()) {
         return;
@@ -6681,33 +7499,21 @@
       }
 
       const totalPallets = getCurrentTotalPalletCount();
+      const showProgress = totalPallets > LONG_CALC_THRESHOLD;
+      const calculation = {
+        jobId: updateJobId,
+        cancelled: false,
+        allowYield: showProgress
+      };
+      activeCalculation = calculation;
+      const loadingId = showProgress ? showLoadingBar() : null;
 
-      if (totalPallets > LONG_CALC_THRESHOLD) {
-        const jobId = ++updateJobId;
-        const loadingId = showLoadingBar();
+      if (!showProgress) forceHideLoadingBar();
 
-        updateDelayTimer = window.setTimeout(() => {
-          if (jobId !== updateJobId) return;
-
-          requestAnimationFrame(() => {
-            window.setTimeout(() => {
-              if (jobId !== updateJobId) return;
-
-              try {
-                runUpdate();
-              } finally {
-                hideLoadingBar(loadingId, true);
-              }
-            }, 0);
-          });
-        }, LONG_CALC_DELAY_MS);
-
-        return;
-      }
-
-      updateJobId++;
-      forceHideLoadingBar();
-      runUpdate();
+      updateDelayTimer = window.setTimeout(() => {
+        if (calculation.cancelled || calculation.jobId !== updateJobId) return;
+        void runUpdate(calculation, loadingId);
+      }, showProgress ? LONG_CALC_DELAY_MS : 0);
     }
 
     function animate() {
