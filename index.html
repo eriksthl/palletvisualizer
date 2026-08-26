@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Eriks Pallpackningskalkylator</title>
+  <title>Eriks packningskalkylator</title>
   <link rel="icon" type="image/png" href="./Bertling-small-logotype-transparent.png">
   <script type="importmap">
     {
@@ -48,6 +48,17 @@
       box-shadow: 4px 0 20px rgba(0,0,0,0.4);
     }
 
+    .app-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .app-heading-copy {
+      min-width: 0;
+    }
+
     h1 {
       font-size: 17px;
       margin: 0 0 4px;
@@ -60,6 +71,27 @@
       font-size: 11px;
       color: var(--sub);
       letter-spacing: 0.35px;
+    }
+
+    .settings-button {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 7px 9px;
+      border-radius: 7px;
+      border: 1px solid #2a3560;
+      background: #0b1130;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .settings-button:hover {
+      border-color: var(--accent);
+      background: rgba(106,166,255,0.12);
     }
 
     .field { margin-bottom: 12px; }
@@ -109,7 +141,51 @@
 
     button:disabled {
       opacity: 0.62;
+      cursor: not-allowed;
+    }
+
+    .calculate-button {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #061026;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: filter 0.15s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .calculate-button:hover:not(:disabled) {
+      filter: brightness(1.08);
+    }
+
+    .calculate-button:disabled {
+      opacity: 1;
+      background: #252d4b;
+      border-color: #343d62;
+      color: #7f89b1;
+      cursor: not-allowed;
+    }
+
+    .calculate-button.is-calculating:disabled {
+      color: #d5dcff;
       cursor: progress;
+    }
+
+    .calculation-pending {
+      margin-top: 6px;
+      min-height: 16px;
+      text-align: center;
+    }
+
+    .calculation-pending.is-dirty { color: var(--warn); }
+    .calculation-pending.is-clean { color: var(--ok); }
+
+    .stats.is-stale {
+      opacity: 0.55;
+      filter: grayscale(0.35);
     }
 
     .input-group {
@@ -183,8 +259,12 @@
       transition: transform 0.2s ease;
     }
 
-    #modeImport:checked ~ .mode-pill {
+    #cargoCylinder:checked ~ .mode-pill {
       transform: translateX(100%);
+    }
+
+    .cargo-panel[hidden] {
+      display: none !important;
     }
 
     .pallet-row-header,
@@ -209,10 +289,44 @@
       gap: 6px;
     }
 
-    .pallet-row input {
+    .pallet-row input,
+    .cylinder-row input {
       padding: 7px 6px;
       font-size: 12px;
       text-align: center;
+    }
+
+    .cylinder-row-header,
+    .cylinder-row {
+      display: grid;
+      grid-template-columns: 42px minmax(58px, 1fr) minmax(58px, 1fr) 62px 32px;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .cylinder-row-header {
+      margin-bottom: 5px;
+      padding: 0 1px;
+      color: var(--sub);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+    }
+
+    .cylinder-rows {
+      display: grid;
+      gap: 6px;
+    }
+
+    .cargo-mode-field {
+      margin-bottom: 2px;
+    }
+
+    .cargo-help {
+      margin-top: 6px;
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--sub);
     }
 
     .rotation-lock-cell {
@@ -591,6 +705,132 @@
       display: none;
     }
 
+    .settings-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .settings-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(4, 7, 18, 0.78);
+      backdrop-filter: blur(4px);
+    }
+
+    .settings-dialog {
+      position: relative;
+      width: min(980px, 100%);
+      max-height: min(820px, calc(100vh - 48px));
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 14px;
+      border: 1px solid #2a3560;
+      background: #11162a;
+      box-shadow: 0 24px 70px rgba(0,0,0,0.58);
+    }
+
+    .settings-header,
+    .settings-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      border-bottom: 1px solid #222c58;
+    }
+
+    .settings-footer {
+      justify-content: flex-end;
+      border-top: 1px solid #222c58;
+      border-bottom: 0;
+    }
+
+    .settings-header h2 {
+      margin: 0;
+      font-size: 18px;
+      color: #fff;
+    }
+
+    .settings-close-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 7px;
+      border: 1px solid #2a3560;
+      background: #0b1130;
+      color: var(--text);
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .settings-content {
+      min-height: 0;
+      overflow-y: auto;
+      padding: 18px;
+    }
+
+    .settings-note {
+      margin-bottom: 14px;
+      padding: 11px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(106,166,255,0.28);
+      background: rgba(106,166,255,0.08);
+      color: var(--sub);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .container-settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
+      gap: 12px;
+    }
+
+    .container-settings-card {
+      padding: 13px;
+      border-radius: 10px;
+      border: 1px solid #222c58;
+      background: #0f1430;
+    }
+
+    .container-settings-card h3 {
+      margin: 0 0 11px;
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .container-settings-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+
+    .container-setting-field label {
+      margin-bottom: 4px;
+      font-size: 9px;
+      line-height: 1.25;
+    }
+
+    .container-setting-field input {
+      padding: 7px 8px;
+      font-size: 13px;
+    }
+
+    .container-setting-field input.is-invalid {
+      border-color: var(--danger);
+      background: rgba(255,107,107,0.08);
+    }
+
+    .settings-status {
+      margin-right: auto;
+      color: var(--sub);
+      font-size: 11px;
+    }
+
     .manual-mode-actions {
       margin-top: 10px;
     }
@@ -612,47 +852,102 @@
 <body>
 
   <div class="sidebar">
-    <h1>Eriks Pallpackningskalkylator</h1>
-    <div class="app-version">Extreme Point Heuristic // Version 7.4.0</div>
+    <div class="app-heading">
+      <div class="app-heading-copy">
+        <h1>Eriks packningskalkylator</h1>
+        <div class="app-version">Extreme Point Heuristic // Version 8.1.0</div>
+      </div>
+      <button id="settingsBtn" class="settings-button" type="button" aria-haspopup="dialog" aria-controls="settingsModal">⚙ Inställningar</button>
+    </div>
+
+    <div class="field cargo-mode-field">
+      <span class="mode-title">Godstyp</span>
+      <div class="mode-tabs" role="tablist" aria-label="Godstyp">
+        <input id="cargoPallet" type="radio" name="cargoMode" value="pallet" checked>
+        <label id="cargoTabPallet" for="cargoPallet" role="tab" aria-selected="true">Pallar</label>
+        <input id="cargoCylinder" type="radio" name="cargoMode" value="cylinder">
+        <label id="cargoTabCylinder" for="cargoCylinder" role="tab" aria-selected="false">Cylindrar</label>
+        <span class="mode-pill" aria-hidden="true"></span>
+      </div>
+    </div>
 
     <div class="input-panel">
-      <div class="field">
-        <label>Pallrader</label>
+      <div id="palletPanel" class="cargo-panel">
+        <div class="field">
+          <label>Pallrader</label>
 
-        <div class="pallet-row-header">
-          <span>Antal</span>
-          <span>Längd</span>
-          <span>Bredd</span>
-          <span>Höjd</span>
-          <span>Vikt</span>
-          <span title="Lås rotation">Lås</span>
-          <span></span>
+          <div class="pallet-row-header">
+            <span>Antal</span>
+            <span>Längd</span>
+            <span>Bredd</span>
+            <span>Höjd</span>
+            <span>Vikt</span>
+            <span title="Lås rotation">Lås</span>
+            <span></span>
+          </div>
+
+          <div id="palletRows" class="pallet-rows"></div>
+
+          <div class="action-row">
+            <button id="addPalletRow" class="secondary-button" type="button">+ Lägg till pallrad</button>
+          </div>
         </div>
 
-        <div id="palletRows" class="pallet-rows"></div>
-
-        <div class="action-row">
-          <button id="addPalletRow" class="secondary-button" type="button">+ Lägg till rad</button>
-          <button id="exportCsvBtn" class="secondary-button" type="button">Exportera CSV</button>
-          <button id="importCsvBtn" class="secondary-button" type="button">Importera CSV</button>
-          <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
-        </div>
-      </div>
-
-      <div class="field import-box">
-        <label>Importera från text</label>
-        <textarea id="palletImport" placeholder="(l,b,h)
+        <div class="field import-box">
+          <label>Klistra in pallar</label>
+          <textarea id="palletImport" placeholder="(l,b,h)
 //
 (l,b,h,v)
 "></textarea>
 
-        <div class="action-row">
-          <button id="importPalletsBtn" class="primary-button" type="button">Importera text</button>
+          <div class="action-row">
+            <button id="importPalletsBtn" class="primary-button" type="button">Importera text</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="cylinderPanel" class="cargo-panel" hidden>
+        <div class="field">
+          <label>Cylinderrader</label>
+
+          <div class="cylinder-row-header">
+            <span>Antal</span>
+            <span>Höjd</span>
+            <span>Diameter</span>
+            <span>Vikt</span>
+            <span></span>
+          </div>
+
+          <div id="cylinderRows" class="cylinder-rows"></div>
+
+          <div class="cargo-help">Cylindrar packas stående. Höjd motsvarar exempelvis rullens width/bredd i leveransnoten.</div>
+
+          <div class="action-row">
+            <button id="addCylinderRow" class="secondary-button" type="button">+ Lägg till cylinderrad</button>
+          </div>
         </div>
 
-        <div class="note csv-format-note" hidden></div>
-        <div id="importMsg" class="note"></div>
+        <div class="field import-box">
+          <label>Klistra in cylindrar</label>
+          <textarea id="cylinderImport" placeholder="(höjd,diameter)
+//
+(höjd,diameter,vikt)
+"></textarea>
+
+          <div class="action-row">
+            <button id="importCylindersBtn" class="primary-button" type="button">Importera text</button>
+          </div>
+        </div>
       </div>
+
+      <div class="action-row">
+        <button id="exportCsvBtn" class="secondary-button" type="button">Exportera CSV</button>
+        <button id="importCsvBtn" class="secondary-button" type="button">Importera CSV</button>
+        <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
+      </div>
+
+      <div class="note csv-format-note" hidden></div>
+      <div id="importMsg" class="note"></div>
     </div>
 
     <div class="row">
@@ -672,6 +967,11 @@
     <div class="field">
       <label for="maxContainerWeight">Maxvikt/container (kg)</label>
       <input id="maxContainerWeight" type="number" value="25000" min="1" step="100">
+    </div>
+
+    <div class="field">
+      <button id="calculateBtn" class="calculate-button" type="button">Beräkna</button>
+      <div id="calculationState" class="note calculation-pending">Tryck på Beräkna för att packa godset.</div>
     </div>
 
     <div class="stats">
@@ -728,6 +1028,25 @@
     </div>
   </div>
 
+  <div id="settingsModal" class="settings-modal" hidden>
+    <div class="settings-backdrop" data-settings-close></div>
+    <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="settings-header">
+        <h2 id="settingsTitle">Containerinställningar</h2>
+        <button id="settingsCloseIcon" class="settings-close-icon" type="button" aria-label="Stäng inställningar">×</button>
+      </div>
+      <div class="settings-content">
+        <div class="settings-note">Anpassa containrarnas invändiga mått och öppningar i centimeter. Ändringar sparas i den här webbläsaren och gör den aktuella packningen inaktuell tills du trycker på Beräkna igen.</div>
+        <div id="containerSettingsGrid" class="container-settings-grid"></div>
+      </div>
+      <div class="settings-footer">
+        <span id="settingsStatus" class="settings-status"></span>
+        <button id="resetContainerSettingsBtn" class="secondary-button" type="button">Återställ standard</button>
+        <button id="settingsCloseBtn" class="primary-button" type="button">Klar</button>
+      </div>
+    </section>
+  </div>
+
   <div id="canvas-container">
     <div class="equipment-menu">
       <label for="equipmentMode">Containertyp</label>
@@ -751,8 +1070,9 @@
       </div>
     </div>
     <div class="overlay-info">
-      <div><span class="color-dot" style="background:#4a9eff"></span>Längd (A)</div>
-      <div style="margin-top:4px"><span class="color-dot" style="background:#7bd89c"></span>Bredd (B)</div>
+      <div id="palletLegendA"><span class="color-dot" style="background:#4a9eff"></span><span>Längd (A)</span></div>
+      <div id="palletLegendB" style="margin-top:4px"><span class="color-dot" style="background:#7bd89c"></span><span>Bredd (B)</span></div>
+      <div id="cylinderLegend" hidden><span class="color-dot" style="background:#6aa6ff"></span><span>Cylinder (stående)</span></div>
       <div style="margin-top:4px"><span class="color-dot" style="background:#c28a55"></span><span id="dimensionLegendLabel">Dörrmått</span></div>
     </div>
   </div>
@@ -862,6 +1182,46 @@
       },
     };
 
+    const CONTAINER_DIMENSION_FIELDS = {
+      '20': [
+        ['L', 'Invändig längd'], ['W', 'Invändig bredd'], ['H', 'Invändig höjd'],
+        ['doorW', 'Dörrbredd'], ['doorH', 'Dörrhöjd']
+      ],
+      '40': [
+        ['L', 'Invändig längd'], ['W', 'Invändig bredd'], ['H', 'Invändig höjd'],
+        ['doorW', 'Dörrbredd'], ['doorH', 'Dörrhöjd']
+      ],
+      '40HC': [
+        ['L', 'Invändig längd'], ['W', 'Invändig bredd'], ['H', 'Invändig höjd'],
+        ['doorW', 'Dörrbredd'], ['doorH', 'Dörrhöjd']
+      ],
+      '20OT': [
+        ['L', 'Invändig längd'], ['W', 'Invändig bredd'], ['H', 'Sidohöjd'],
+        ['doorW', 'Dörrbredd'], ['doorH', 'Dörrhöjd'],
+        ['roofOpenL', 'Toppöppning längd'], ['roofOpenW', 'Toppöppning bredd']
+      ],
+      '40OT': [
+        ['L', 'Invändig längd'], ['W', 'Invändig bredd'], ['H', 'Sidohöjd'],
+        ['doorW', 'Dörrbredd'], ['doorH', 'Dörrhöjd'],
+        ['roofOpenL', 'Toppöppning längd'], ['roofOpenW', 'Toppöppning bredd']
+      ],
+      '20FR': [
+        ['L', 'Flaklängd'], ['W', 'Flakbredd'], ['H', 'Gavelhöjd']
+      ],
+      '40FR': [
+        ['L', 'Flaklängd'], ['W', 'Flakbredd'], ['H', 'Gavelhöjd']
+      ]
+    };
+
+    const DEFAULT_CONTAINER_DIMENSIONS = Object.fromEntries(
+      Object.entries(CONTAINER_DIMENSION_FIELDS).map(([type, fields]) => [
+        type,
+        Object.fromEntries(fields.map(([field]) => [field, Number(CONTAINERS[type][field])]))
+      ])
+    );
+
+    const CONTAINER_SETTINGS_STORAGE_KEY = 'eriks-packningskalkylator-container-settings-8.1.0';
+
     const EQUIPMENT_MODES = {
       dry: {
         label: 'Dry van',
@@ -885,6 +1245,55 @@
         legend: 'Flakmått'
       }
     };
+
+    const CARGO_TYPES = {
+      pallet: {
+        label: 'Pallar',
+        singular: 'pall',
+        plural: 'pallar',
+        rowSingular: 'pallrad',
+        rowPlural: 'pallrader'
+      },
+      cylinder: {
+        label: 'Cylindrar',
+        singular: 'cylinder',
+        plural: 'cylindrar',
+        rowSingular: 'cylinderrad',
+        rowPlural: 'cylinderrader'
+      }
+    };
+
+    function getCargoType() {
+      return activeCargoType || 'pallet';
+    }
+
+    function getCargoConfig(type = getCargoType()) {
+      return CARGO_TYPES[type] || CARGO_TYPES.pallet;
+    }
+
+    function isCylinderMode(type = getCargoType()) {
+      return type === 'cylinder';
+    }
+
+    function cargoCountText(count, type = getCargoType()) {
+      const number = Number(count) || 0;
+      const config = getCargoConfig(type);
+      return `${number} ${number === 1 ? config.singular : config.plural}`;
+    }
+
+    function cargoNoun(count = 2, type = getCargoType()) {
+      const config = getCargoConfig(type);
+      return Number(count) === 1 ? config.singular : config.plural;
+    }
+
+    function getCargoNoun(count = 2, capitalize = false, type = getCargoType()) {
+      const noun = cargoNoun(count, type);
+      return capitalize ? noun.charAt(0).toUpperCase() + noun.slice(1) : noun;
+    }
+
+    function isCylinder(item) {
+      return Boolean(item && (item.shape === 'cylinder' || item.item?.shape === 'cylinder'));
+    }
 
     function getEquipmentMode() {
       return els?.equipmentMode?.value || 'dry';
@@ -945,10 +1354,29 @@
     }
 
     const els = {
+      settingsBtn: document.getElementById('settingsBtn'),
+      settingsModal: document.getElementById('settingsModal'),
+      settingsCloseIcon: document.getElementById('settingsCloseIcon'),
+      settingsCloseBtn: document.getElementById('settingsCloseBtn'),
+      resetContainerSettingsBtn: document.getElementById('resetContainerSettingsBtn'),
+      containerSettingsGrid: document.getElementById('containerSettingsGrid'),
+      settingsStatus: document.getElementById('settingsStatus'),
+      cargoTabPallet: document.getElementById('cargoTabPallet'),
+      cargoTabCylinder: document.getElementById('cargoTabCylinder'),
+      cargoPalletInput: document.getElementById('cargoPallet'),
+      cargoCylinderInput: document.getElementById('cargoCylinder'),
+      palletPanel: document.getElementById('palletPanel'),
+      cylinderPanel: document.getElementById('cylinderPanel'),
       palletImport: document.getElementById('palletImport'),
       palletRows: document.getElementById('palletRows'),
       addPalletRow: document.getElementById('addPalletRow'),
       importPalletsBtn: document.getElementById('importPalletsBtn'),
+      cylinderImport: document.getElementById('cylinderImport'),
+      cylinderRows: document.getElementById('cylinderRows'),
+      addCylinderRow: document.getElementById('addCylinderRow'),
+      importCylindersBtn: document.getElementById('importCylindersBtn'),
+      calculateBtn: document.getElementById('calculateBtn'),
+      calculationState: document.getElementById('calculationState'),
       exportCsvBtn: document.getElementById('exportCsvBtn'),
       exportPdfBtn: document.getElementById('exportPdfBtn'),
       importCsvBtn: document.getElementById('importCsvBtn'),
@@ -973,6 +1401,7 @@
       containerWeights: document.getElementById('containerWeights'),
       calculationMethod: document.getElementById('calculationMethod'),
       limitReason: document.getElementById('limitReason'),
+      stats: document.querySelector('.stats'),
       msgBox: document.getElementById('msgBox'),
       manualModeBox: document.getElementById('manualModeBox'),
       manualModeText: document.getElementById('manualModeText'),
@@ -983,6 +1412,9 @@
       loadingTitle: document.getElementById('loadingTitle'),
       loadingPercent: document.getElementById('loadingPercent'),
       loadingBarFill: document.getElementById('loadingBarFill'),
+      palletLegendA: document.getElementById('palletLegendA'),
+      palletLegendB: document.getElementById('palletLegendB'),
+      cylinderLegend: document.getElementById('cylinderLegend'),
       dimensionLegendLabel: document.getElementById('dimensionLegendLabel'),
       container: document.getElementById('canvas-container')
     };
@@ -1024,14 +1456,18 @@
     let freeCam = false;
     let hasAutoFittedScene = false;
     let nextPalletRowId = 1;
+    let nextCylinderRowId = 1;
+    let activeCargoType = 'pallet';
+    let activeManualCargoType = 'pallet';
     let updateDelayTimer = null;
     let updateJobId = 0;
     const DEFAULT_MAX_CONTAINER_WEIGHT = 25000;
     const LONG_CALC_THRESHOLD = 20;
-    const LONG_CALC_DELAY_MS = 60;
+    const LONG_CALC_DELAY_MS = 30;
     const MIN_LOADING_MS = 250;
     const singleCapacityCache = new Map();
     let activeCalculation = null;
+    let calculationRunning = false;
     let loadingVisibleSince = 0;
     let loadingToken = 0;
     let hideLoadingTimer = null;
@@ -1048,6 +1484,7 @@
     let manualModeInputDirty = false;
     const PALLET_COLOR_A = 0x4a9eff;
     const PALLET_COLOR_B = 0x7bd89c;
+    const CYLINDER_COLOR = 0x6aa6ff;
     const PALLET_HOVER_COLOR = 0xffd166;
     const EXPORT_BACK_PANEL_COLOR = 0x45547a;
     const EXPORT_BACK_PANEL_OPACITY = 0.7;
@@ -1066,45 +1503,303 @@
     let palletPointerDownClientY = 0;
     let palletDragState = null;
     let camLockFlashTimer = null;
-    let lastUpdateInputSignature = null;
+    let lastCalculatedInputSignature = null;
     let lastHandledPalletRowsSignature = null;
+    let lastHandledCylinderRowsSignature = null;
+    const cargoGeometryCache = new Map();
+    const cargoEdgesGeometryCache = new Map();
+    const cylinderGeometryTemplateCache = new Map();
+
+    function getPlacementShape(value) {
+      return value?.shape || value?.item?.shape || 'box';
+    }
+
+    function requestSceneRender() {
+      // Rendering already runs in the animation loop.
+    }
+
+    function getContainerDimensionSettingsSnapshot() {
+      return Object.fromEntries(
+        Object.entries(CONTAINER_DIMENSION_FIELDS).map(([type, fields]) => [
+          type,
+          Object.fromEntries(fields.map(([field]) => [field, Number(CONTAINERS[type][field])]))
+        ])
+      );
+    }
+
+    function getContainerDimensionsSignature(type = null) {
+      if (type && CONTAINER_DIMENSION_FIELDS[type]) {
+        return JSON.stringify(Object.fromEntries(
+          CONTAINER_DIMENSION_FIELDS[type].map(([field]) => [field, Number(CONTAINERS[type][field])])
+        ));
+      }
+      return JSON.stringify(getContainerDimensionSettingsSnapshot());
+    }
+
+    function clearPackingGeometryCaches() {
+      singleCapacityCache.clear();
+      cylinderGeometryTemplateCache.clear();
+    }
+
+    function persistContainerDimensionSettings() {
+      try {
+        localStorage.setItem(CONTAINER_SETTINGS_STORAGE_KEY, JSON.stringify(getContainerDimensionSettingsSnapshot()));
+        if (els.settingsStatus) els.settingsStatus.textContent = 'Sparat lokalt.';
+      } catch (error) {
+        console.warn('Could not save container settings.', error);
+        if (els.settingsStatus) els.settingsStatus.textContent = 'Kunde inte spara lokalt.';
+      }
+    }
+
+    function applyContainerDimensionSettings(settings, options = {}) {
+      if (!settings || typeof settings !== 'object') return false;
+      let changed = false;
+
+      Object.entries(CONTAINER_DIMENSION_FIELDS).forEach(([type, fields]) => {
+        fields.forEach(([field]) => {
+          const next = Number(settings?.[type]?.[field]);
+          if (!Number.isFinite(next) || next <= 0) return;
+          if (Math.abs(Number(CONTAINERS[type][field]) - next) <= EPS) return;
+          CONTAINERS[type][field] = next;
+          changed = true;
+        });
+      });
+
+      if (changed) clearPackingGeometryCaches();
+      if (options.render !== false) renderContainerSettingsInputs();
+      if (changed && options.persist) persistContainerDimensionSettings();
+      if (changed && options.markDirty) handlePackingInputsChanged();
+      return changed;
+    }
+
+    function loadContainerDimensionSettings() {
+      try {
+        const stored = localStorage.getItem(CONTAINER_SETTINGS_STORAGE_KEY);
+        if (stored) applyContainerDimensionSettings(JSON.parse(stored), { render: false });
+      } catch (error) {
+        console.warn('Could not load container settings.', error);
+      }
+    }
+
+    function renderContainerSettingsInputs() {
+      if (!els.containerSettingsGrid) return;
+      els.containerSettingsGrid.innerHTML = '';
+
+      Object.entries(CONTAINER_DIMENSION_FIELDS).forEach(([type, fields]) => {
+        const card = document.createElement('section');
+        card.className = 'container-settings-card';
+
+        const title = document.createElement('h3');
+        title.textContent = formatContainerType(type);
+        card.appendChild(title);
+
+        const fieldGrid = document.createElement('div');
+        fieldGrid.className = 'container-settings-fields';
+
+        fields.forEach(([field, labelText]) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'container-setting-field';
+
+          const label = document.createElement('label');
+          label.textContent = `${labelText} (cm)`;
+          label.htmlFor = `container-setting-${type}-${field}`;
+
+          const input = document.createElement('input');
+          input.id = label.htmlFor;
+          input.type = 'number';
+          input.min = '1';
+          input.step = '0.1';
+          input.value = formatNumberForRowInput(CONTAINERS[type][field]);
+          input.dataset.containerType = type;
+          input.dataset.containerField = field;
+
+          wrapper.appendChild(label);
+          wrapper.appendChild(input);
+          fieldGrid.appendChild(wrapper);
+        });
+
+        card.appendChild(fieldGrid);
+        els.containerSettingsGrid.appendChild(card);
+      });
+    }
+
+    function openSettingsModal() {
+      renderContainerSettingsInputs();
+      if (els.settingsStatus) els.settingsStatus.textContent = '';
+      els.settingsModal.hidden = false;
+      requestAnimationFrame(() => {
+        els.containerSettingsGrid?.querySelector('input')?.focus();
+      });
+    }
+
+    function closeSettingsModal() {
+      els.settingsModal.hidden = true;
+      els.settingsBtn?.focus();
+    }
+
+    function handleContainerSettingInput(event) {
+      const input = event.target.closest('input[data-container-type][data-container-field]');
+      if (!input) return;
+
+      const type = input.dataset.containerType;
+      const field = input.dataset.containerField;
+      const value = parseFlexibleNumber(input.value);
+      const valid = Number.isFinite(value) && value > 0;
+      input.classList.toggle('is-invalid', !valid);
+      if (!valid) return;
+
+      if (Math.abs(Number(CONTAINERS[type][field]) - value) <= EPS) return;
+      CONTAINERS[type][field] = value;
+      clearPackingGeometryCaches();
+      persistContainerDimensionSettings();
+      handlePackingInputsChanged();
+    }
+
+    function normalizeContainerSettingInput(event) {
+      const input = event.target.closest('input[data-container-type][data-container-field]');
+      if (!input) return;
+      const type = input.dataset.containerType;
+      const field = input.dataset.containerField;
+      const value = parseFlexibleNumber(input.value);
+
+      if (!Number.isFinite(value) || value <= 0) {
+        input.value = formatNumberForRowInput(CONTAINERS[type][field]);
+        input.classList.remove('is-invalid');
+      }
+    }
+
+    function resetContainerDimensionSettings() {
+      applyContainerDimensionSettings(DEFAULT_CONTAINER_DIMENSIONS, { render: true, persist: true, markDirty: true });
+      try {
+        localStorage.removeItem(CONTAINER_SETTINGS_STORAGE_KEY);
+      } catch (error) {
+        console.warn('Could not clear saved container settings.', error);
+      }
+      if (els.settingsStatus) els.settingsStatus.textContent = 'Standardmått återställda.';
+    }
+
+    function updateCargoUi() {
+      const cylinderMode = isCylinderMode();
+      els.palletPanel.hidden = cylinderMode;
+      els.cylinderPanel.hidden = !cylinderMode;
+      els.cargoPalletInput.checked = !cylinderMode;
+      els.cargoCylinderInput.checked = cylinderMode;
+      els.cargoTabPallet.classList.toggle('is-active', !cylinderMode);
+      els.cargoTabCylinder.classList.toggle('is-active', cylinderMode);
+      els.cargoTabPallet.setAttribute('aria-selected', cylinderMode ? 'false' : 'true');
+      els.cargoTabCylinder.setAttribute('aria-selected', cylinderMode ? 'true' : 'false');
+      els.palletLegendA.hidden = cylinderMode;
+      els.palletLegendB.hidden = cylinderMode;
+      els.cylinderLegend.hidden = !cylinderMode;
+      if (cylinderMode) hideRotatePalletButton();
+    }
+
+    function setCargoType(type, options = {}) {
+      const normalized = CARGO_TYPES[type] ? type : 'pallet';
+      const changed = normalized !== activeCargoType;
+      activeCargoType = normalized;
+      updateCargoUi();
+
+      if (changed && options.markDirty !== false) {
+        handlePackingInputsChanged();
+      } else {
+        updateCalculateButtonState();
+      }
+    }
+
+    function isPackingDirty() {
+      return getPackingInputSignature() !== lastCalculatedInputSignature;
+    }
+
+    function updateCalculateButtonState() {
+      const dirty = isPackingDirty();
+      const busy = calculationRunning || Boolean(activeCalculation);
+      els.calculateBtn.disabled = busy || !dirty;
+      els.calculateBtn.textContent = busy ? 'Beräknar...' : 'Beräkna';
+      els.calculateBtn.setAttribute('aria-busy', busy ? 'true' : 'false');
+      els.calculateBtn.classList.toggle('is-calculating', busy);
+      els.exportPdfBtn.disabled = busy || dirty || lastCalculatedInputSignature === null || !lastRenderedSolution;
+      els.stats?.classList.toggle('is-stale', dirty && lastCalculatedInputSignature !== null);
+      els.calculationState.classList.toggle('is-dirty', dirty);
+      els.calculationState.classList.toggle('is-clean', !dirty);
+
+      if (busy) {
+        els.calculationState.textContent = 'Beräkning pågår.';
+      } else if (dirty) {
+        els.calculationState.textContent = lastCalculatedInputSignature === null
+          ? 'Tryck Beräkna för att skapa en packning.'
+          : 'Ändringar ej beräknade.';
+      } else {
+        els.calculationState.textContent = 'Packningen är uppdaterad.';
+      }
+    }
+
+    function handlePackingInputsChanged() {
+      clearTimeout(updateDelayTimer);
+      cancelActiveCalculation();
+      forceHideLoadingBar();
+      resetManualModesAfterPalletInputChange();
+      updateCalculateButtonState();
+    }
+
+    function markPackingInputsChanged() {
+      handlePackingInputsChanged();
+    }
+
+    els.settingsBtn.addEventListener('click', openSettingsModal);
+    els.settingsCloseIcon.addEventListener('click', closeSettingsModal);
+    els.settingsCloseBtn.addEventListener('click', closeSettingsModal);
+    els.resetContainerSettingsBtn.addEventListener('click', resetContainerDimensionSettings);
+    els.settingsModal.addEventListener('click', event => {
+      if (event.target.matches('[data-settings-close]')) closeSettingsModal();
+    });
+    els.containerSettingsGrid.addEventListener('input', handleContainerSettingInput);
+    els.containerSettingsGrid.addEventListener('change', normalizeContainerSettingInput);
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !els.settingsModal.hidden) closeSettingsModal();
+    });
 
     els.toggleCamBtn.addEventListener('click', () => {
       setCameraUnlocked(!freeCam);
     });
 
-    [
-      els.layers,
-      els.equipmentMode,
-      els.maxContainerWeight
-    ].forEach(el => {
-      el.addEventListener('input', update);
-      el.addEventListener('change', update);
+    els.cargoTabPallet.addEventListener('click', () => setCargoType('pallet'));
+    els.cargoTabCylinder.addEventListener('click', () => setCargoType('cylinder'));
+    els.cargoPalletInput.addEventListener('change', () => {
+      if (els.cargoPalletInput.checked) setCargoType('pallet');
+    });
+    els.cargoCylinderInput.addEventListener('change', () => {
+      if (els.cargoCylinderInput.checked) setCargoType('cylinder');
+    });
+
+    [els.layers, els.maxContainerWeight].forEach(el => {
+      el.addEventListener('input', handlePackingInputsChanged);
+      el.addEventListener('change', handlePackingInputsChanged);
+    });
+
+    els.equipmentMode.addEventListener('change', () => {
+      updateEquipmentUi();
+      handlePackingInputsChanged();
     });
 
     els.stack.addEventListener('change', () => {
       els.layers.disabled = !els.stack.checked;
-      update();
+      handlePackingInputsChanged();
     });
 
     els.maxContainerWeight.addEventListener('blur', () => {
       if (!Number.isFinite(parseFloat(els.maxContainerWeight.value)) || parseFloat(els.maxContainerWeight.value) <= 0) {
         els.maxContainerWeight.value = DEFAULT_MAX_CONTAINER_WEIGHT;
-        update(true);
+        handlePackingInputsChanged();
       }
     });
 
-    els.addPalletRow.addEventListener('click', () => {
-      addPalletRow({ count: 1 }, true);
-    });
-
-    els.importPalletsBtn.addEventListener('click', () => {
-      importTextToRows();
-    });
-
-    els.exportCsvBtn.addEventListener('click', () => {
-      exportConfigurationCsv();
-    });
+    els.addPalletRow.addEventListener('click', () => addPalletRow({ count: 1 }, true));
+    els.addCylinderRow.addEventListener('click', () => addCylinderRow({ count: 1 }, true));
+    els.importPalletsBtn.addEventListener('click', importTextToRows);
+    els.importCylindersBtn.addEventListener('click', importTextToCylinderRows);
+    els.calculateBtn.addEventListener('click', () => update(true));
+    els.exportCsvBtn.addEventListener('click', exportConfigurationCsv);
 
     els.exportPdfBtn.addEventListener('click', () => {
       exportReportPdf().catch(error => {
@@ -1118,10 +1813,7 @@
       els.csvFileInput.click();
     });
 
-    els.csvFileInput.addEventListener('change', () => {
-      importConfigurationCsvFile();
-    });
-
+    els.csvFileInput.addEventListener('change', importConfigurationCsvFile);
     renderer.domElement.addEventListener('pointermove', handlePalletPointerMove);
     renderer.domElement.addEventListener('pointerdown', handlePalletPointerDown);
     renderer.domElement.addEventListener('pointerup', handlePalletPointerUp);
@@ -1139,6 +1831,7 @@
       camera.updateProjectionMatrix();
       renderer.setSize(els.container.clientWidth, els.container.clientHeight);
       autoFitCamera();
+      requestSceneRender();
     });
 
     function createTextLabel(text, color = '#a9b0d6', scaleX = 350, scaleY = 45, options = {}) {
@@ -1183,7 +1876,7 @@
       while (mainGroup.children.length > 0) mainGroup.remove(mainGroup.children[0]);
     }
 
-    function createRowInput(field, value, placeholder, min = null) {
+    function createRowInput(field, value, placeholder, min = null, changeHandler = handlePalletRowsChanged) {
       const input = document.createElement('input');
       input.type = 'number';
       input.dataset.field = field;
@@ -1192,8 +1885,8 @@
 
       if (min !== null) input.min = min;
 
-      input.addEventListener('input', handlePalletRowsChanged);
-      input.addEventListener('change', handlePalletRowsChanged);
+      input.addEventListener('input', changeHandler);
+      input.addEventListener('change', changeHandler);
 
       return input;
     }
@@ -1224,6 +1917,12 @@
       return Math.max(1, Math.floor(parseFloat(value) || 1));
     }
 
+    function parseFlexibleNumber(value) {
+      const text = String(value ?? '').trim();
+      if (!text) return NaN;
+      return parseFloat(text.replace(/\s/g, '').replace(',', '.'));
+    }
+
     function readPalletRowElement(rowEl) {
       const countVal = rowEl.querySelector('[data-field="count"]')?.value;
       const lVal = rowEl.querySelector('[data-field="L"]')?.value;
@@ -1233,10 +1932,10 @@
       const lockRotation = Boolean(rowEl.querySelector('[data-field="lockRotation"]')?.checked);
 
       const count = parseRowCount(countVal);
-      const L = parseFloat(lVal);
-      const W = parseFloat(wVal);
-      const H = parseFloat(hVal);
-      const weight = weightVal === '' ? '' : parseFloat(weightVal);
+      const L = parseFlexibleNumber(lVal);
+      const W = parseFlexibleNumber(wVal);
+      const H = parseFlexibleNumber(hVal);
+      const weight = weightVal === '' ? '' : parseFlexibleNumber(weightVal);
 
       return {
         rowId: rowEl.dataset.rowId,
@@ -1246,7 +1945,35 @@
         H,
         weight: Number.isFinite(weight) ? weight : '',
         lockRotation,
+        shape: 'box',
+        cargoType: 'pallet',
         isValid: Number.isFinite(L) && Number.isFinite(W) && Number.isFinite(H) && L > 0 && W > 0 && H > 0
+      };
+    }
+
+    function readCylinderRowElement(rowEl) {
+      const countVal = rowEl.querySelector('[data-field="count"]')?.value;
+      const heightVal = rowEl.querySelector('[data-field="H"]')?.value;
+      const diameterVal = rowEl.querySelector('[data-field="D"]')?.value;
+      const weightVal = rowEl.querySelector('[data-field="weight"]')?.value;
+
+      const count = parseRowCount(countVal);
+      const H = parseFlexibleNumber(heightVal);
+      const D = parseFlexibleNumber(diameterVal);
+      const weight = weightVal === '' ? '' : parseFlexibleNumber(weightVal);
+
+      return {
+        rowId: rowEl.dataset.rowId,
+        count,
+        D,
+        L: D,
+        W: D,
+        H,
+        weight: Number.isFinite(weight) ? weight : '',
+        lockRotation: true,
+        shape: 'cylinder',
+        cargoType: 'cylinder',
+        isValid: Number.isFinite(D) && Number.isFinite(H) && D > 0 && H > 0
       };
     }
 
@@ -1275,11 +2002,11 @@
       row.className = 'pallet-row';
       row.dataset.rowId = String(nextPalletRowId++);
 
-      const countInput = createRowInput('count', data.count ?? 1, '1', 1);
-      const lengthInput = createRowInput('L', data.L ?? '', '120', 1);
-      const widthInput = createRowInput('W', data.W ?? '', '80', 1);
-      const heightInput = createRowInput('H', data.H ?? '', '100', 1);
-      const weightInput = createRowInput('weight', data.weight ?? '', '-', 0);
+      const countInput = createRowInput('count', data.count ?? 1, '1', 1, handlePalletRowsChanged);
+      const lengthInput = createRowInput('L', data.L ?? '', '120', 1, handlePalletRowsChanged);
+      const widthInput = createRowInput('W', data.W ?? '', '80', 1, handlePalletRowsChanged);
+      const heightInput = createRowInput('H', data.H ?? '', '100', 1, handlePalletRowsChanged);
+      const weightInput = createRowInput('weight', data.weight ?? '', '-', 0, handlePalletRowsChanged);
       const lockRotationInput = createRotationLockInput(data.lockRotation ?? false);
 
       const removeButton = document.createElement('button');
@@ -1312,17 +2039,48 @@
         els.palletRows.appendChild(row);
       }
 
-      if (shouldUpdate) {
-        handlePalletRowsChanged();
-      }
+      if (shouldUpdate) handlePalletRowsChanged();
+      return row;
+    }
 
+    function addCylinderRow(data = {}, shouldUpdate = true) {
+      const row = document.createElement('div');
+      row.className = 'cylinder-row';
+      row.dataset.rowId = String(nextCylinderRowId++);
+
+      const countInput = createRowInput('count', data.count ?? 1, '1', 1, handleCylinderRowsChanged);
+      const heightInput = createRowInput('H', data.H ?? '', '130', 1, handleCylinderRowsChanged);
+      const diameterInput = createRowInput('D', data.D ?? data.L ?? '', '135', 1, handleCylinderRowsChanged);
+      const weightInput = createRowInput('weight', data.weight ?? '', '-', 0, handleCylinderRowsChanged);
+
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'icon-button';
+      removeButton.title = 'Ta bort rad';
+      removeButton.textContent = '×';
+      removeButton.addEventListener('click', () => {
+        row.remove();
+        if (els.cylinderRows.children.length === 0) addCylinderRow({ count: 1 }, false);
+        handleCylinderRowsChanged();
+      });
+
+      row.appendChild(countInput);
+      row.appendChild(heightInput);
+      row.appendChild(diameterInput);
+      row.appendChild(weightInput);
+      row.appendChild(removeButton);
+      els.cylinderRows.appendChild(row);
+
+      if (shouldUpdate) handleCylinderRowsChanged();
       return row;
     }
 
     function clearPalletRows() {
-      while (els.palletRows.firstChild) {
-        els.palletRows.removeChild(els.palletRows.firstChild);
-      }
+      while (els.palletRows.firstChild) els.palletRows.removeChild(els.palletRows.firstChild);
+    }
+
+    function clearCylinderRows() {
+      while (els.cylinderRows.firstChild) els.cylinderRows.removeChild(els.cylinderRows.firstChild);
     }
 
     function readPalletRowDefinitions() {
@@ -1330,22 +2088,50 @@
 
       [...els.palletRows.querySelectorAll('.pallet-row')].forEach((rowEl, rowIndex) => {
         const rowData = readPalletRowElement(rowEl);
-
-        if (rowData.isValid) {
-          rows.push({
-            rowId: rowData.rowId,
-            rowIndex,
-            count: rowData.count,
-            L: rowData.L,
-            W: rowData.W,
-            H: rowData.H,
-            weight: rowData.weight,
-            lockRotation: rowData.lockRotation
-          });
-        }
+        if (!rowData.isValid) return;
+        rows.push({
+          rowId: rowData.rowId,
+          rowIndex,
+          count: rowData.count,
+          L: rowData.L,
+          W: rowData.W,
+          H: rowData.H,
+          weight: rowData.weight,
+          lockRotation: rowData.lockRotation,
+          shape: 'box',
+          cargoType: 'pallet'
+        });
       });
 
       return rows;
+    }
+
+    function readCylinderRowDefinitions() {
+      const rows = [];
+
+      [...els.cylinderRows.querySelectorAll('.cylinder-row')].forEach((rowEl, rowIndex) => {
+        const rowData = readCylinderRowElement(rowEl);
+        if (!rowData.isValid) return;
+        rows.push({
+          rowId: rowData.rowId,
+          rowIndex,
+          count: rowData.count,
+          D: rowData.D,
+          L: rowData.D,
+          W: rowData.D,
+          H: rowData.H,
+          weight: rowData.weight,
+          lockRotation: true,
+          shape: 'cylinder',
+          cargoType: 'cylinder'
+        });
+      });
+
+      return rows;
+    }
+
+    function readActiveCargoRowDefinitions() {
+      return getCargoType() === 'cylinder' ? readCylinderRowDefinitions() : readPalletRowDefinitions();
     }
 
     function buildPalletsFromRowDefinitions(rowDefinitions) {
@@ -1361,6 +2147,8 @@
             H: row.H,
             weight: row.weight,
             lockRotation: Boolean(row.lockRotation),
+            shape: 'box',
+            cargoType: 'pallet',
             sourceRowId: row.rowId,
             sourceRowIndex: rowIndex,
             sourceInstanceIndex: i + 1
@@ -1371,6 +2159,43 @@
       return pallets;
     }
 
+    function buildCylindersFromRowDefinitions(rowDefinitions) {
+      const cylinders = [];
+      let nextId = 1;
+
+      rowDefinitions.forEach((row, rowIndex) => {
+        for (let i = 0; i < row.count; i++) {
+          cylinders.push({
+            id: nextId++,
+            D: row.D,
+            L: row.D,
+            W: row.D,
+            H: row.H,
+            weight: row.weight,
+            lockRotation: true,
+            shape: 'cylinder',
+            cargoType: 'cylinder',
+            sourceRowId: row.rowId,
+            sourceRowIndex: rowIndex,
+            sourceInstanceIndex: i + 1
+          });
+        }
+      });
+
+      return cylinders;
+    }
+
+    function buildActiveCargoUnits(rowDefinitions) {
+      return getCargoType() === 'cylinder'
+        ? buildCylindersFromRowDefinitions(rowDefinitions)
+        : buildPalletsFromRowDefinitions(rowDefinitions);
+    }
+
+    function splitImportedTuple(raw) {
+      const delimiter = raw.includes(';') ? ';' : ',';
+      return raw.split(delimiter).map(value => value.trim());
+    }
+
     function parseImportedPalletRows(text) {
       if (!text || !text.trim()) return [];
 
@@ -1379,14 +2204,10 @@
       let match;
 
       while ((match = regex.exec(text)) !== null) {
-        const rawParts = match[1].split(',').map(v => v.trim());
-
-        // Tillåt bara exakt dessa två importformat:
-        // (längd, bredd, höjd)
-        // (längd, bredd, höjd, vikt)
+        const rawParts = splitImportedTuple(match[1]);
         if (rawParts.length !== 3 && rawParts.length !== 4) continue;
 
-        const parts = rawParts.map(v => v === '' ? NaN : parseFloat(v));
+        const parts = rawParts.map(parseFlexibleNumber);
         if (!parts.every(Number.isFinite)) continue;
 
         const [L, W, H, parsedWeight] = parts;
@@ -1399,9 +2220,45 @@
             W,
             H,
             weight: Number.isFinite(weight) ? weight : '',
-            lockRotation: false
+            lockRotation: false,
+            shape: 'box',
+            cargoType: 'pallet'
           });
         }
+      }
+
+      return rows;
+    }
+
+    function parseImportedCylinderRows(text) {
+      if (!text || !text.trim()) return [];
+
+      const rows = [];
+      const regex = /\(([^)]+)\)/g;
+      let match;
+
+      while ((match = regex.exec(text)) !== null) {
+        const rawParts = splitImportedTuple(match[1]);
+        if (rawParts.length !== 2 && rawParts.length !== 3) continue;
+
+        const parts = rawParts.map(parseFlexibleNumber);
+        if (!parts.every(Number.isFinite)) continue;
+
+        const [H, D, parsedWeight] = parts;
+        const weight = rawParts.length === 3 ? parsedWeight : '';
+        if (H <= 0 || D <= 0) continue;
+
+        rows.push({
+          count: 1,
+          H,
+          D,
+          L: D,
+          W: D,
+          weight: Number.isFinite(weight) ? weight : '',
+          lockRotation: true,
+          shape: 'cylinder',
+          cargoType: 'cylinder'
+        });
       }
 
       return rows;
@@ -1422,7 +2279,36 @@
             W: row.W,
             H: row.H,
             weight: row.weight,
-            lockRotation: Boolean(row.lockRotation)
+            lockRotation: Boolean(row.lockRotation),
+            shape: 'box',
+            cargoType: 'pallet'
+          });
+        }
+
+        map.get(key).count += row.count;
+      }
+
+      return [...map.values()];
+    }
+
+    function compressCylinderRowDefinitions(rows) {
+      const map = new Map();
+
+      for (const row of rows) {
+        const weightKey = row.weight === '' ? '' : String(row.weight);
+        const key = `${row.H}|${row.D}|${weightKey}`;
+
+        if (!map.has(key)) {
+          map.set(key, {
+            count: 0,
+            H: row.H,
+            D: row.D,
+            L: row.D,
+            W: row.D,
+            weight: row.weight,
+            lockRotation: true,
+            shape: 'cylinder',
+            cargoType: 'cylinder'
           });
         }
 
@@ -1436,24 +2322,36 @@
       const parsed = compressPalletRowDefinitions(parseImportedPalletRows(els.palletImport.value));
 
       if (!parsed.length) {
-        els.importMsg.innerHTML = '<span class="warning">Hittade inga giltiga pallrader. Använd formatet (längd,bredd,höjd) eller (längd,bredd,höjd,vikt).</span>';
+        els.importMsg.innerHTML = '<span class="warning">Hittade inga giltiga pallrader. Använd formatet (längd,bredd,höjd) eller (längd,bredd,höjd,vikt). Semikolon kan användas om måtten har decimalkomma.</span>';
         return;
       }
 
       clearPalletRows();
-
-      parsed.forEach(row => {
-        addPalletRow(row, false);
-      });
+      parsed.forEach(row => addPalletRow(row, false));
 
       const totalCount = parsed.reduce((sum, row) => sum + row.count, 0);
-      els.importMsg.innerHTML = `<span class="success">Importerade ${totalCount} pall(ar) till ${parsed.length} rad(er).</span>`;
-
+      els.importMsg.innerHTML = `<span class="success">Importerade ${totalCount} ${getCargoNoun(totalCount, false, 'pallet')} till ${parsed.length} rad(er).</span>`;
       handlePalletRowsChanged();
     }
 
+    function importTextToCylinderRows() {
+      const parsed = compressCylinderRowDefinitions(parseImportedCylinderRows(els.cylinderImport.value));
 
-    const CSV_COLUMNS = ['equipment_mode', 'stackable', 'layers', 'max_weight_kg', 'count', 'length_cm', 'width_cm', 'height_cm', 'weight_kg', 'lock_rotation'];
+      if (!parsed.length) {
+        els.importMsg.innerHTML = '<span class="warning">Hittade inga giltiga cylinderrader. Använd formatet (höjd,diameter) eller (höjd,diameter,vikt). Semikolon kan användas om måtten har decimalkomma.</span>';
+        return;
+      }
+
+      clearCylinderRows();
+      parsed.forEach(row => addCylinderRow(row, false));
+
+      const totalCount = parsed.reduce((sum, row) => sum + row.count, 0);
+      els.importMsg.innerHTML = `<span class="success">Importerade ${totalCount} ${getCargoNoun(totalCount, false, 'cylinder')} till ${parsed.length} rad(er).</span>`;
+      handleCylinderRowsChanged();
+    }
+
+
+    const CSV_COLUMNS = ['cargo_type', 'equipment_mode', 'stackable', 'layers', 'max_weight_kg', 'count', 'length_cm', 'width_cm', 'height_cm', 'diameter_cm', 'weight_kg', 'lock_rotation'];
 
     function escapeCsvValue(value) {
       const text = String(value ?? '');
@@ -1466,24 +2364,28 @@
     }
 
     function exportConfigurationCsv() {
-      const rows = readPalletRowDefinitions();
+      const rows = readActiveCargoRowDefinitions();
+      const cargoType = getCargoType();
       const stackable = els.stack.checked ? '1' : '0';
       const layers = parseInt(els.layers.value, 10) || 1;
       const equipmentMode = getEquipmentMode();
       const csvRows = [CSV_COLUMNS];
 
       rows.forEach(row => {
+        const cylinderMode = cargoType === 'cylinder';
         csvRows.push([
+          cargoType,
           equipmentMode,
           stackable,
           layers,
           getMaxContainerWeight(),
           row.count,
-          row.L,
-          row.W,
+          cylinderMode ? row.D : row.L,
+          cylinderMode ? row.D : row.W,
           row.H,
+          cylinderMode ? row.D : '',
           row.weight === '' ? '' : row.weight,
-          row.lockRotation ? '1' : '0'
+          cylinderMode ? '1' : (row.lockRotation ? '1' : '0')
         ]);
       });
 
@@ -1494,7 +2396,7 @@
       const stamp = new Date().toISOString().slice(0, 10);
 
       link.href = url;
-      link.download = `pallkonfiguration-${stamp}.csv`;
+      link.download = `packningskonfiguration-${stamp}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -1502,7 +2404,7 @@
 
       els.importMsg.innerHTML = rows.length
         ? '<span class="success">CSV exporterad.</span>'
-        : '<span class="warning">Inga giltiga pallrader att exportera.</span>';
+        : `<span class="warning">Inga giltiga ${getCargoNoun(2)} att exportera.</span>`;
     }
 
     function detectCsvDelimiter(text) {
@@ -1568,6 +2470,13 @@
         .replace(/^_+|_+$/g, '');
 
       const aliases = {
+        cargo: 'cargo_type',
+        cargo_type: 'cargo_type',
+        cargo_mode: 'cargo_type',
+        goods_type: 'cargo_type',
+        godstyp: 'cargo_type',
+        kollityp: 'cargo_type',
+        shape: 'cargo_type',
         mode: 'equipment_mode',
         equipment: 'equipment_mode',
         equipmentmode: 'equipment_mode',
@@ -1602,6 +2511,10 @@
         height: 'height_cm',
         height_cm: 'height_cm',
         hojd: 'height_cm',
+        d: 'diameter_cm',
+        dia: 'diameter_cm',
+        diameter: 'diameter_cm',
+        diameter_cm: 'diameter_cm',
         weight: 'weight_kg',
         weight_kg: 'weight_kg',
         vikt: 'weight_kg',
@@ -1622,9 +2535,7 @@
     }
 
     function parseCsvNumber(value) {
-      const text = String(value ?? '').trim();
-      if (!text) return NaN;
-      return parseFloat(text.replace(/\s/g, '').replace(',', '.'));
+      return parseFlexibleNumber(value);
     }
 
     function parseCsvBoolean(value) {
@@ -1646,6 +2557,19 @@
       return EQUIPMENT_MODES[value] ? value : null;
     }
 
+    function normalizeCargoTypeValue(value) {
+      const normalized = String(value ?? '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '');
+
+      if (['cylinder', 'cylindrar', 'cyl', 'roll', 'rolls', 'rulle', 'rullar'].includes(normalized)) return 'cylinder';
+      if (['pallet', 'pallets', 'pall', 'pallar', 'box', 'boxes'].includes(normalized)) return 'pallet';
+      return null;
+    }
+
     function importConfigurationCsvText(text) {
       const rows = parseCsv(text);
 
@@ -1656,15 +2580,8 @@
 
       const headers = rows[0].map(normalizeCsvHeader);
       const indexOf = field => headers.indexOf(field);
-      const requiredFields = ['count', 'length_cm', 'width_cm', 'height_cm'];
-      const missing = requiredFields.filter(field => indexOf(field) === -1);
-
-      if (missing.length) {
-        els.importMsg.innerHTML = `<span class="warning">CSV saknar kolumn(er): ${missing.join(', ')}.</span>`;
-        return;
-      }
-
       const importedRows = [];
+      const importedCargoTypes = new Set();
       let importedMode = null;
       let importedStackable = null;
       let importedLayers = null;
@@ -1685,63 +2602,90 @@
         }
 
         const layerValue = parseInt(parseCsvNumber(read('layers')), 10);
-        if (importedLayers === null && Number.isFinite(layerValue) && layerValue > 0) {
-          importedLayers = layerValue;
-        }
+        if (importedLayers === null && Number.isFinite(layerValue) && layerValue > 0) importedLayers = layerValue;
 
         const maxWeightValue = parseCsvNumber(read('max_weight_kg'));
-        if (importedMaxWeight === null && Number.isFinite(maxWeightValue) && maxWeightValue > 0) {
-          importedMaxWeight = maxWeightValue;
-        }
+        if (importedMaxWeight === null && Number.isFinite(maxWeightValue) && maxWeightValue > 0) importedMaxWeight = maxWeightValue;
 
         const count = Math.max(1, Math.floor(parseCsvNumber(read('count')) || 1));
+        const H = parseCsvNumber(read('height_cm'));
+        const diameter = parseCsvNumber(read('diameter_cm'));
         const L = parseCsvNumber(read('length_cm'));
         const W = parseCsvNumber(read('width_cm'));
-        const H = parseCsvNumber(read('height_cm'));
         const weight = parseCsvNumber(read('weight_kg'));
+        const explicitCargo = normalizeCargoTypeValue(read('cargo_type'));
+        const cargoType = explicitCargo || (Number.isFinite(diameter) && diameter > 0 ? 'cylinder' : 'pallet');
+        importedCargoTypes.add(cargoType);
+
+        if (cargoType === 'cylinder') {
+          const D = Number.isFinite(diameter) && diameter > 0
+            ? diameter
+            : (Number.isFinite(L) && L > 0 ? L : W);
+          if (Number.isFinite(D) && Number.isFinite(H) && D > 0 && H > 0) {
+            importedRows.push({
+              cargoType,
+              count,
+              D,
+              L: D,
+              W: D,
+              H,
+              weight: Number.isFinite(weight) ? weight : '',
+              lockRotation: true,
+              shape: 'cylinder'
+            });
+          }
+          return;
+        }
+
         const lockRaw = read('lock_rotation');
         const lockRotation = String(lockRaw).trim() === '' ? false : parseCsvBoolean(lockRaw);
-
         if (Number.isFinite(L) && Number.isFinite(W) && Number.isFinite(H) && L > 0 && W > 0 && H > 0) {
           importedRows.push({
+            cargoType,
             count,
             L,
             W,
             H,
             weight: Number.isFinite(weight) ? weight : '',
-            lockRotation
+            lockRotation,
+            shape: 'box'
           });
         }
       });
 
-      if (!importedRows.length) {
-        els.importMsg.innerHTML = '<span class="warning">Hittade inga giltiga pallrader i CSV-filen.</span>';
+      if (importedCargoTypes.size > 1) {
+        els.importMsg.innerHTML = '<span class="warning">CSV-filen innehåller både pallar och cylindrar. Importera en godstyp åt gången.</span>';
         return;
       }
 
-      if (importedMode) {
-        els.equipmentMode.value = importedMode;
+      if (!importedRows.length) {
+        els.importMsg.innerHTML = '<span class="warning">Hittade inga giltiga rader i CSV-filen.</span>';
+        return;
       }
+
+      const importedCargoType = importedRows[0].cargoType || 'pallet';
+      if (importedMode) els.equipmentMode.value = importedMode;
 
       if (importedStackable !== null) {
         els.stack.checked = importedStackable;
         els.layers.disabled = !importedStackable;
       }
 
-      if (importedLayers !== null) {
-        els.layers.value = importedLayers;
-      }
+      if (importedLayers !== null) els.layers.value = importedLayers;
+      if (importedMaxWeight !== null) els.maxContainerWeight.value = importedMaxWeight;
 
-      if (importedMaxWeight !== null) {
-        els.maxContainerWeight.value = importedMaxWeight;
+      setCargoType(importedCargoType, { markDirty: false });
+      if (importedCargoType === 'cylinder') {
+        clearCylinderRows();
+        importedRows.forEach(row => addCylinderRow(row, false));
+      } else {
+        clearPalletRows();
+        importedRows.forEach(row => addPalletRow(row, false));
       }
-
-      clearPalletRows();
-      importedRows.forEach(row => addPalletRow(row, false));
 
       const totalCount = importedRows.reduce((sum, row) => sum + row.count, 0);
-      els.importMsg.innerHTML = `<span class="success">Importerade ${totalCount} pall(ar) från CSV (${importedRows.length} rad(er)).</span>`;
-      handlePalletRowsChanged();
+      els.importMsg.innerHTML = `<span class="success">Importerade ${totalCount} ${getCargoNoun(totalCount, false, importedCargoType)} från CSV (${importedRows.length} rad(er)).</span>`;
+      markPackingInputsChanged();
     }
 
     function importConfigurationCsvFile() {
@@ -1761,8 +2705,20 @@
       reader.readAsText(file);
     }
 
+    function getCargoFootprintArea(item) {
+      if (isCylinder(item)) {
+        const diameter = Number(item.D ?? item.L) || 0;
+        return Math.PI * Math.pow(diameter / 2, 2);
+      }
+      return (Number(item.L) || 0) * (Number(item.W) || 0);
+    }
+
+    function getCargoVolume(item) {
+      return getCargoFootprintArea(item) * (Number(item.H) || 0);
+    }
+
     function totalVolumeOfPallets(pallets) {
-      return pallets.reduce((sum, p) => sum + (p.L * p.W * p.H), 0) / 1000000;
+      return pallets.reduce((sum, item) => sum + getCargoVolume(item), 0) / 1000000;
     }
 
     function lexicographicallyBetter(a, b) {
@@ -1828,15 +2784,16 @@
 
     function canBinAcceptItemWeight(bin, item, maxWeight = getMaxContainerWeight(), options = {}) {
       if (!itemHasKnownWeight(item)) return true;
-      const info = getBinWeightInfo(bin);
-      let ignoredWeight = 0;
+      let currentWeight = Number.isFinite(bin?.usedWeight)
+        ? bin.usedWeight
+        : getBinWeightInfo(bin).knownWeight;
 
       for (const placement of bin?.placements || []) {
         if (!placementIsIgnored(placement, options)) continue;
-        if (itemHasKnownWeight(placement.item)) ignoredWeight += getItemWeight(placement.item);
+        if (itemHasKnownWeight(placement.item)) currentWeight -= getItemWeight(placement.item);
       }
 
-      return info.knownWeight - ignoredWeight + getItemWeight(item) <= maxWeight + EPS;
+      return currentWeight + getItemWeight(item) <= maxWeight + EPS;
     }
 
     function itemTooHeavyForContainer(item, maxWeight = getMaxContainerWeight()) {
@@ -1951,6 +2908,11 @@
     }
 
     function getItemOrientations(item) {
+      if (isCylinder(item)) {
+        const diameter = Number(item.D ?? item.L);
+        return [{ L: diameter, W: diameter, kind: 'C' }];
+      }
+
       const orientations = [
         { L: item.L, W: item.W, kind: 'A' }
       ];
@@ -2059,39 +3021,53 @@
     }
 
     function buildItemsFromPallets(pallets) {
-      return pallets.map((p, idx) => ({
-        baseId: p.id ? `imp-${p.id}` : `item-${idx + 1}`,
-        L: p.L,
-        W: p.W,
-        H: p.H,
-        area: p.L * p.W,
-        volume: p.L * p.W * p.H,
-        lockRotation: Boolean(p.lockRotation),
-        sourceRowId: p.sourceRowId,
-        sourceRowIndex: p.sourceRowIndex,
-        sourceInstanceIndex: p.sourceInstanceIndex,
-        weight: p.weight
-      }));
+      return pallets.map((p, idx) => {
+        const shape = p.shape || 'box';
+        const D = shape === 'cylinder' ? Number(p.D ?? p.L) : undefined;
+        const item = {
+          baseId: p.id ? `imp-${p.id}` : `item-${idx + 1}`,
+          L: shape === 'cylinder' ? D : p.L,
+          W: shape === 'cylinder' ? D : p.W,
+          H: p.H,
+          D,
+          shape,
+          cargoType: p.cargoType || (shape === 'cylinder' ? 'cylinder' : 'pallet'),
+          lockRotation: shape === 'cylinder' ? true : Boolean(p.lockRotation),
+          sourceRowId: p.sourceRowId,
+          sourceRowIndex: p.sourceRowIndex,
+          sourceInstanceIndex: p.sourceInstanceIndex,
+          weight: p.weight
+        };
+        item.area = getCargoFootprintArea(item);
+        item.volume = getCargoVolume(item);
+        return item;
+      });
     }
 
     function buildSingleItems(pL, pW, pH, count, options = {}) {
       const items = [];
-      const lockRotation = Boolean(options.lockRotation);
+      const shape = options.shape || 'box';
+      const diameter = shape === 'cylinder' ? Number(options.D ?? pL) : undefined;
+      const lockRotation = shape === 'cylinder' ? true : Boolean(options.lockRotation);
       const weight = options.weight === '' || options.weight === null || options.weight === undefined
         ? ''
         : Number(options.weight);
 
       for (let i = 0; i < count; i++) {
-        items.push({
+        const item = {
           baseId: `single-${i + 1}`,
-          L: pL,
-          W: pW,
+          L: shape === 'cylinder' ? diameter : pL,
+          W: shape === 'cylinder' ? diameter : pW,
           H: pH,
-          area: pL * pW,
-          volume: pL * pW * pH,
+          D: diameter,
+          shape,
+          cargoType: shape === 'cylinder' ? 'cylinder' : 'pallet',
           lockRotation,
           weight: Number.isFinite(weight) ? weight : ''
-        });
+        };
+        item.area = getCargoFootprintArea(item);
+        item.volume = getCargoVolume(item);
+        items.push(item);
       }
 
       return items;
@@ -2113,7 +3089,7 @@
       let seed = 2166136261;
 
       for (const item of items) {
-        const str = `${item.baseId}|${item.L}|${item.W}|${item.H}|${item.weight ?? ''}|${item.lockRotation ? 1 : 0}`;
+        const str = `${item.baseId}|${item.shape || 'box'}|${item.L}|${item.W}|${item.H}|${item.D ?? ''}|${item.weight ?? ''}|${item.lockRotation ? 1 : 0}`;
 
         for (let i = 0; i < str.length; i++) {
           seed ^= str.charCodeAt(i);
@@ -2156,7 +3132,16 @@
         orders.push(arr);
       }
 
-      return orders;
+      const unique = [];
+      const seen = new Set();
+      for (const order of orders) {
+        const key = order.map(item => item.baseId).join('|');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(order);
+      }
+
+      return unique;
     }
 
     // -------------------------------
@@ -2197,6 +3182,7 @@
       return {
         type: solution.type,
         mode: solution.mode,
+        cargoType: solution.cargoType || getCargoType(),
         bins: solution.bins.map(cloneBin),
         unplaced: [...solution.unplaced],
         algorithm: solution.algorithm || '',
@@ -2217,22 +3203,136 @@
       return solution.bins.reduce((sum, bin) => sum + bin.items.length, 0);
     }
 
-    function boxesIntersect3D(a, b) {
+    const SPATIAL_CELL_SIZE = 120;
+
+    function getPlacementCacheKey(bin) {
+      return (bin?.placements || []).map(p => (
+        `${p.baseId || ''}:${p.x}:${p.y}:${p.z}:${p.L}:${p.W}:${p.H}:${getPlacementShape(p)}`
+      )).join('|');
+    }
+
+    function getCellRange(min, max, size = SPATIAL_CELL_SIZE) {
+      const start = Math.floor((min - EPS) / size);
+      const end = Math.floor((max + EPS) / size);
+      return { start, end };
+    }
+
+    function getBinSpatialIndex(bin) {
+      if (bin._spatialIndexCache) return bin._spatialIndexCache;
+
+      const cells = new Map();
+      for (const placement of bin.placements || []) {
+        const xr = getCellRange(placement.x, placement.x + placement.L);
+        const yr = getCellRange(placement.y, placement.y + placement.W);
+
+        for (let ix = xr.start; ix <= xr.end; ix++) {
+          for (let iy = yr.start; iy <= yr.end; iy++) {
+            const key = `${ix}|${iy}`;
+            if (!cells.has(key)) cells.set(key, []);
+            cells.get(key).push(placement);
+          }
+        }
+      }
+
+      bin._spatialIndexCache = { cells };
+      return bin._spatialIndexCache;
+    }
+
+    function queryBinPlacements(bin, probe) {
+      if (!bin?.placements?.length) return [];
+      const index = getBinSpatialIndex(bin);
+      const xr = getCellRange(probe.x, probe.x + probe.L);
+      const yr = getCellRange(probe.y, probe.y + probe.W);
+      const found = new Set();
+
+      for (let ix = xr.start; ix <= xr.end; ix++) {
+        for (let iy = yr.start; iy <= yr.end; iy++) {
+          for (const placement of index.cells.get(`${ix}|${iy}`) || []) found.add(placement);
+        }
+      }
+
+      return [...found];
+    }
+
+    function invalidateBinGeometryCaches(bin) {
+      if (!bin) return;
+      bin._spatialIndexCache = null;
+      bin._candidatePointsCache = null;
+      bin._cylinderCandidatePointsCache = null;
+    }
+
+    function verticalIntervalsOverlap(a, b) {
       return !(
-        a.x >= b.x + b.L ||
-        a.x + a.L <= b.x ||
-        a.y >= b.y + b.W ||
-        a.y + a.W <= b.y ||
-        a.z >= b.z + b.H ||
-        a.z + a.H <= b.z
+        a.z >= b.z + b.H - EPS ||
+        a.z + a.H <= b.z + EPS
       );
     }
 
+    function getCylinderRadius(value) {
+      return Math.max(0, Number(value?.D ?? value?.L) || 0) / 2;
+    }
+
+    function getCylinderCenter(value) {
+      const radius = getCylinderRadius(value);
+      return {
+        x: Number(value.x) + radius,
+        y: Number(value.y) + radius,
+        radius
+      };
+    }
+
+    function circleIntersectsRectangle(circleValue, rectangleValue) {
+      const circle = getCylinderCenter(circleValue);
+      const nearestX = clamp(circle.x, rectangleValue.x, rectangleValue.x + rectangleValue.L);
+      const nearestY = clamp(circle.y, rectangleValue.y, rectangleValue.y + rectangleValue.W);
+      const dx = circle.x - nearestX;
+      const dy = circle.y - nearestY;
+      const threshold = Math.max(0, circle.radius - EPS);
+      return (dx * dx) + (dy * dy) < threshold * threshold;
+    }
+
+    function footprintsIntersect(a, b) {
+      const aCylinder = isCylinder(a);
+      const bCylinder = isCylinder(b);
+
+      if (aCylinder && bCylinder) {
+        const ac = getCylinderCenter(a);
+        const bc = getCylinderCenter(b);
+        const dx = ac.x - bc.x;
+        const dy = ac.y - bc.y;
+        const threshold = Math.max(0, ac.radius + bc.radius - EPS);
+        return (dx * dx) + (dy * dy) < threshold * threshold;
+      }
+
+      if (aCylinder) return circleIntersectsRectangle(a, b);
+      if (bCylinder) return circleIntersectsRectangle(b, a);
+
+      return !(
+        a.x >= b.x + b.L - EPS ||
+        a.x + a.L <= b.x + EPS ||
+        a.y >= b.y + b.W - EPS ||
+        a.y + a.W <= b.y + EPS
+      );
+    }
+
+    function boxesIntersect3D(a, b) {
+      if (!verticalIntervalsOverlap(a, b)) return false;
+      return footprintsIntersect(a, b);
+    }
+
     function pointInsidePlacement(point, placement) {
+      if (point.z < placement.z || point.z >= placement.z + placement.H) return false;
+
+      if (isCylinder(placement)) {
+        const center = getCylinderCenter(placement);
+        const dx = point.x - center.x;
+        const dy = point.y - center.y;
+        return (dx * dx) + (dy * dy) < Math.pow(Math.max(0, center.radius - EPS), 2);
+      }
+
       return (
         point.x >= placement.x && point.x < placement.x + placement.L &&
-        point.y >= placement.y && point.y < placement.y + placement.W &&
-        point.z >= placement.z && point.z < placement.z + placement.H
+        point.y >= placement.y && point.y < placement.y + placement.W
       );
     }
 
@@ -2242,19 +3342,53 @@
       return Boolean(ignored && typeof ignored.has === 'function' && ignored.has(p));
     }
 
-    function findSupportingPlacement(bin, x, y, z, L, W, options = {}) {
-      for (const p of bin.placements) {
-        if (placementIsIgnored(p, options)) continue;
-        if (Math.abs((p.z + p.H) - z) > 1e-6) continue;
+    function placementFitsOnSupport(child, support) {
+      const childCylinder = isCylinder(child);
+      const supportCylinder = isCylinder(support);
 
-        if (
-          x >= p.x - 1e-6 &&
-          y >= p.y - 1e-6 &&
-          x + L <= p.x + p.L + 1e-6 &&
-          y + W <= p.y + p.W + 1e-6
-        ) {
-          return p;
-        }
+      if (childCylinder && supportCylinder) {
+        const childCenter = getCylinderCenter(child);
+        const supportCenter = getCylinderCenter(support);
+        const distance = Math.hypot(childCenter.x - supportCenter.x, childCenter.y - supportCenter.y);
+        return distance + childCenter.radius <= supportCenter.radius + EPS;
+      }
+
+      if (!childCylinder && !supportCylinder) {
+        return (
+          child.x >= support.x - EPS &&
+          child.y >= support.y - EPS &&
+          child.x + child.L <= support.x + support.L + EPS &&
+          child.y + child.W <= support.y + support.W + EPS
+        );
+      }
+
+      if (childCylinder) {
+        return (
+          child.x >= support.x - EPS &&
+          child.y >= support.y - EPS &&
+          child.x + child.L <= support.x + support.L + EPS &&
+          child.y + child.W <= support.y + support.W + EPS
+        );
+      }
+
+      const supportCenter = getCylinderCenter(support);
+      const corners = [
+        [child.x, child.y],
+        [child.x + child.L, child.y],
+        [child.x, child.y + child.W],
+        [child.x + child.L, child.y + child.W]
+      ];
+      return corners.every(([x, y]) => Math.hypot(x - supportCenter.x, y - supportCenter.y) <= supportCenter.radius + EPS);
+    }
+
+    function findSupportingPlacement(bin, x, y, z, L, W, item, options = {}) {
+      const child = { x, y, z, L, W, H: item.H, D: item.D, shape: item.shape, item };
+      const candidates = queryBinPlacements(bin, child);
+
+      for (const p of candidates) {
+        if (placementIsIgnored(p, options)) continue;
+        if (Math.abs((p.z + p.H) - z) > EPS) continue;
+        if (placementFitsOnSupport(child, p)) return p;
       }
 
       return null;
@@ -2273,24 +3407,42 @@
       const box = bin.box;
       let score = 0;
 
-      if (x === 0 || x + L === box.L) score += W * H;
-      if (y === 0 || y + W === box.W) score += L * H;
-      if (z === 0) score += L * W;
+      if (x <= EPS || x + L >= box.L - EPS) score += W * H;
+      if (y <= EPS || y + W >= box.W - EPS) score += L * H;
+      if (z <= EPS) score += getCargoFootprintArea(placement.item || placement);
 
-      for (const p of bin.placements) {
+      const expanded = { ...placement, x: x - EPS, y: y - EPS, z: z - EPS, L: L + (2 * EPS), W: W + (2 * EPS), H: H + (2 * EPS) };
+      for (const p of queryBinPlacements(bin, expanded)) {
+        if (isCylinder(placement) && isCylinder(p)) {
+          const ac = getCylinderCenter(placement);
+          const bc = getCylinderCenter(p);
+          const distance = Math.hypot(ac.x - bc.x, ac.y - bc.y);
+          const sideContact = Math.abs(distance - (ac.radius + bc.radius)) <= 1e-4;
+          const verticalOverlap = overlapLen(z, z + H, p.z, p.z + p.H);
+          if (sideContact && verticalOverlap > 0) score += verticalOverlap * Math.min(L, p.L);
+          if (Math.abs(z - (p.z + p.H)) <= EPS || Math.abs((z + H) - p.z) <= EPS) {
+            if (footprintsIntersect({ ...placement, z: 0, H: 1 }, { ...p, z: 0, H: 1 })) {
+              score += Math.min(getCargoFootprintArea(placement.item || placement), getCargoFootprintArea(p.item || p));
+            }
+          }
+          continue;
+        }
+
         const yz = overlapArea2D(y, y + W, z, z + H, p.y, p.y + p.W, p.z, p.z + p.H);
         const xz = overlapArea2D(x, x + L, z, z + H, p.x, p.x + p.L, p.z, p.z + p.H);
         const xy = overlapArea2D(x, x + L, y, y + W, p.x, p.x + p.L, p.y, p.y + p.W);
 
-        if (x === p.x + p.L || x + L === p.x) score += yz;
-        if (y === p.y + p.W || y + W === p.y) score += xz;
-        if (z === p.z + p.H || z + H === p.z) score += xy;
+        if (Math.abs(x - (p.x + p.L)) <= EPS || Math.abs((x + L) - p.x) <= EPS) score += yz;
+        if (Math.abs(y - (p.y + p.W)) <= EPS || Math.abs((y + W) - p.y) <= EPS) score += xz;
+        if (Math.abs(z - (p.z + p.H)) <= EPS || Math.abs((z + H) - p.z) <= EPS) score += xy;
       }
 
       return score;
     }
 
     function generateCandidatePoints(bin) {
+      if (bin._candidatePointsCache) return bin._candidatePointsCache;
+
       const points = [{ x: 0, y: 0, z: 0 }];
 
       if (bin.box.topLoad && bin.box.roofOpenL && bin.box.roofOpenW) {
@@ -2312,9 +3464,6 @@
         );
 
         if (bin.box.flatRack && placementExceedsNominalWidth(p, bin.box)) {
-          // Överbredda flat-rack-pallar är centrerade på flakets breddlinje.
-          // Lägg därför också till kandidatpunkter med normaliserad y=0,
-          // annars försvinner nästa längdposition när p.y är negativ.
           points.push(
             { x: p.x + p.L, y: 0, z: p.z },
             { x: p.x + p.L, y: 0, z: top },
@@ -2325,7 +3474,6 @@
 
       const out = [];
       const seen = new Set();
-
       const heightLimit = getContainerHeightLimit(bin.box);
 
       for (const pt of points) {
@@ -2336,20 +3484,143 @@
         if (seen.has(key)) continue;
         seen.add(key);
 
-        let inside = false;
-
-        for (const p of bin.placements) {
-          if (pointInsidePlacement(pt, p)) {
-            inside = true;
-            break;
-          }
-        }
-
+        const probe = { x: pt.x - EPS, y: pt.y - EPS, z: pt.z, L: 2 * EPS, W: 2 * EPS, H: EPS };
+        const inside = queryBinPlacements(bin, probe).some(p => pointInsidePlacement(pt, p));
         if (!inside) out.push(pt);
       }
 
       out.sort((a, b) => a.z - b.z || a.x - b.x || a.y - b.y);
+      bin._candidatePointsCache = out;
       return out;
+    }
+
+    function circleIntersectionPoints(a, radiusA, b, radiusB) {
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance <= EPS || distance > radiusA + radiusB + EPS || distance < Math.abs(radiusA - radiusB) - EPS) return [];
+
+      const along = ((radiusA * radiusA) - (radiusB * radiusB) + (distance * distance)) / (2 * distance);
+      const heightSq = Math.max(0, (radiusA * radiusA) - (along * along));
+      const height = Math.sqrt(heightSq);
+      const baseX = a.x + (along * dx / distance);
+      const baseY = a.y + (along * dy / distance);
+      const offsetX = -dy * height / distance;
+      const offsetY = dx * height / distance;
+
+      return [
+        { x: baseX + offsetX, y: baseY + offsetY },
+        { x: baseX - offsetX, y: baseY - offsetY }
+      ];
+    }
+
+    function getCylinderCenterBounds(box, item) {
+      const radius = getCylinderRadius(item);
+      let xMin = radius;
+      let xMax = box.L - radius;
+      let yMin = radius;
+      let yMax = box.W - radius;
+
+      if (isFlatRackOverWidth(box, item.W)) {
+        yMin = box.W / 2;
+        yMax = yMin;
+      }
+
+      if (openTopPlacementNeedsRoofOpeningClearance(box, item)) {
+        const roof = getRoofOpeningBounds(box);
+        xMin = Math.max(xMin, roof.xMin + radius);
+        xMax = Math.min(xMax, roof.xMax - radius);
+        if (!isFlatRackOverWidth(box, item.W)) {
+          yMin = Math.max(yMin, roof.yMin + radius);
+          yMax = Math.min(yMax, roof.yMax - radius);
+        }
+      }
+
+      return { xMin, xMax, yMin, yMax, radius };
+    }
+
+    function generateCylinderCandidatePoints(bin, item) {
+      const itemKey = `${item.D ?? item.L}|${item.H}`;
+      if (bin._cylinderCandidatePointsCache?.itemKey === itemKey) return bin._cylinderCandidatePointsCache.points;
+
+      const bounds = getCylinderCenterBounds(bin.box, item);
+      if (bounds.xMax < bounds.xMin - EPS || bounds.yMax < bounds.yMin - EPS) return [];
+
+      const candidates = [];
+      const seen = new Set();
+      const pushCenter = (cx, cy, z = 0) => {
+        if (!Number.isFinite(cx) || !Number.isFinite(cy) || !Number.isFinite(z)) return;
+        if (cx < bounds.xMin - EPS || cx > bounds.xMax + EPS || cy < bounds.yMin - EPS || cy > bounds.yMax + EPS || z < -EPS) return;
+        const x = cx - bounds.radius;
+        const y = cy - bounds.radius;
+        const key = `${Math.round(x * 100000) / 100000}|${Math.round(y * 100000) / 100000}|${Math.round(z * 100000) / 100000}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        candidates.push({ x, y, z });
+      };
+
+      pushCenter(bounds.xMin, bounds.yMin, 0);
+      pushCenter(bounds.xMax, bounds.yMin, 0);
+      pushCenter(bounds.xMin, bounds.yMax, 0);
+      pushCenter(bounds.xMax, bounds.yMax, 0);
+
+      const cylinders = (bin.placements || []).filter(isCylinder);
+      const zLevels = new Set([0]);
+      cylinders.forEach(p => {
+        zLevels.add(p.z);
+        pushCenter(getCylinderCenter(p).x, getCylinderCenter(p).y, p.z + p.H);
+      });
+
+      for (const z of zLevels) {
+        const sameLevel = cylinders.filter(p => verticalIntervalsOverlap({ x: 0, y: 0, z, L: item.L, W: item.W, H: item.H }, p));
+
+        sameLevel.forEach(p => {
+          const pc = getCylinderCenter(p);
+          const tangent = pc.radius + bounds.radius;
+          pushCenter(pc.x + tangent, pc.y, z);
+          pushCenter(pc.x - tangent, pc.y, z);
+          pushCenter(pc.x, pc.y + tangent, z);
+          pushCenter(pc.x, pc.y - tangent, z);
+
+          for (const boundaryX of [bounds.xMin, bounds.xMax]) {
+            const dx = boundaryX - pc.x;
+            if (Math.abs(dx) <= tangent + EPS) {
+              const dy = Math.sqrt(Math.max(0, (tangent * tangent) - (dx * dx)));
+              pushCenter(boundaryX, pc.y + dy, z);
+              pushCenter(boundaryX, pc.y - dy, z);
+            }
+          }
+
+          for (const boundaryY of [bounds.yMin, bounds.yMax]) {
+            const dy = boundaryY - pc.y;
+            if (Math.abs(dy) <= tangent + EPS) {
+              const dx = Math.sqrt(Math.max(0, (tangent * tangent) - (dy * dy)));
+              pushCenter(pc.x + dx, boundaryY, z);
+              pushCenter(pc.x - dx, boundaryY, z);
+            }
+          }
+        });
+
+        for (let i = 0; i < sameLevel.length; i++) {
+          const a = sameLevel[i];
+          const ac = getCylinderCenter(a);
+          for (let j = i + 1; j < sameLevel.length; j++) {
+            const b = sameLevel[j];
+            const bc = getCylinderCenter(b);
+            const radiusA = ac.radius + bounds.radius;
+            const radiusB = bc.radius + bounds.radius;
+            circleIntersectionPoints(ac, radiusA, bc, radiusB).forEach(point => pushCenter(point.x, point.y, z));
+          }
+        }
+      }
+
+      if ((bin.placements || []).some(p => !isCylinder(p))) {
+        generateCandidatePoints(bin).forEach(point => pushCenter(point.x + bounds.radius, point.y + bounds.radius, point.z));
+      }
+
+      candidates.sort((a, b) => a.z - b.z || a.x - b.x || a.y - b.y);
+      bin._cylinderCandidatePointsCache = { itemKey, points: candidates };
+      return candidates;
     }
 
     function canPlaceInBin(bin, item, x, y, z, L, W, wantedLayers, options = {}) {
@@ -2366,16 +3637,16 @@
       if (overWidth) {
         const centeredY = (box.W - W) / 2;
         if (Math.abs(y - centeredY) > EPS) return null;
-      } else {
-        if (y < -EPS || y + W > box.W + EPS) return null;
+      } else if (y < -EPS || y + W > box.W + EPS) {
+        return null;
       }
 
       if (!placementFitsRoofOpeningClearance(box, item, x, y, L, W)) return null;
       if (!options.ignoreWeight && !canBinAcceptItemWeight(bin, item, getMaxContainerWeight(), options)) return null;
 
-      const probe = { x, y, z, L, W, H: item.H };
+      const probe = { x, y, z, L, W, H: item.H, D: item.D, shape: item.shape, item };
 
-      for (const p of bin.placements) {
+      for (const p of queryBinPlacements(bin, probe)) {
         if (placementIsIgnored(p, options)) continue;
         if (boxesIntersect3D(probe, p)) return null;
       }
@@ -2383,8 +3654,8 @@
       let support = null;
       let layer = 1;
 
-      if (z > 0) {
-        support = findSupportingPlacement(bin, x, y, z, L, W, options);
+      if (z > EPS) {
+        support = findSupportingPlacement(bin, x, y, z, L, W, item, options);
         if (!support) return null;
         layer = (support.layer ?? 1) + 1;
       }
@@ -2445,7 +3716,9 @@
 
     function findBestPlacementInBin(bin, item, wantedLayers, heuristic, placementOptions = {}) {
       let best = null;
-      const points = generateCandidatePoints(bin);
+      const points = isCylinder(item)
+        ? generateCylinderCandidatePoints(bin, item)
+        : generateCandidatePoints(bin);
 
       const orientations = getItemOrientations(item);
 
@@ -2473,6 +3746,8 @@
             L: opt.L,
             W: opt.W,
             H: item.H,
+            D: item.D,
+            shape: item.shape || 'box',
             kind: opt.kind,
             layer: supportInfo.layer,
             supportId: supportInfo.support?.baseId ?? null,
@@ -2505,6 +3780,7 @@
       bin.overHeightWarning = bin.overHeightWarning || (
         placementExceedsNominalHeight(placement, bin.box) && !bin.box?.topLoad
       );
+      invalidateBinGeometryCaches(bin);
     }
 
     function betterCandidate(a, b, bins) {
@@ -2702,6 +3978,22 @@
       return solutionSpreadMetric(a) > solutionSpreadMetric(b);
     }
 
+    function cloneSingleContainerPlan(plan) {
+      if (!plan) return plan;
+      return {
+        ...plan,
+        placements: (plan.placements || []).map(placement => ({ ...placement })),
+        items: [...(plan.items || [])]
+      };
+    }
+
+    function getSingleContainerPlanCacheKey(type, items, wantedLayers, extraRandomOrders, options = {}) {
+      const itemKey = items.map(item => (
+        `${item.baseId}:${item.shape || 'box'}:${item.L}:${item.W}:${item.H}:${item.D ?? ''}:${item.weight ?? ''}:${item.lockRotation ? 1 : 0}`
+      )).join('|');
+      return `${type}|${getEquipmentMode()}|${getContainerDimensionsSignature(type)}|${wantedLayers}|${extraRandomOrders}|${options.ignoreWeight ? 1 : 0}|${options.identicalItems ? 1 : 0}|${getMaxContainerWeight()}|${itemKey}`;
+    }
+
     async function bestSingleContainerPlan3D(type, items, wantedLayers, extraRandomOrders = 8, options = {}) {
       if (!items.length) {
         return {
@@ -2719,6 +4011,16 @@
       const calculation = options.calculation || null;
       const onProgress = options.onProgress || null;
       const ignoreWeight = Boolean(options.ignoreWeight);
+      const planCache = calculation?.planCache;
+      const planCacheKey = planCache
+        ? getSingleContainerPlanCacheKey(type, items, wantedLayers, extraRandomOrders, options)
+        : null;
+
+      if (planCacheKey && planCache.has(planCacheKey)) {
+        if (typeof onProgress === 'function') onProgress(1);
+        return cloneSingleContainerPlan(planCache.get(planCacheKey));
+      }
+
       const box = CONTAINERS[type];
       const rng = makeSeededRng(getItemSeed(items) ^ box.L ^ box.W ^ box.H ^ 123);
       const orders = options.identicalItems
@@ -2799,6 +4101,7 @@
         }
       }
 
+      if (planCacheKey && best) planCache.set(planCacheKey, cloneSingleContainerPlan(best));
       return best;
     }
 
@@ -3146,13 +4449,17 @@
         return Math.max(0, bestPerLayer * maxLayers);
       }
 
-      const areaUpper = Math.floor((box.L * box.W * maxLayers) / (pallet.L * pallet.W));
+      const footprintArea = Math.max(EPS, getCargoFootprintArea(pallet));
+      const perLayerUpper = box.flatRack && pallet.W > box.W + EPS
+        ? Math.max(0, Math.floor(box.L / pallet.L))
+        : Math.floor((box.L * box.W) / footprintArea);
+      const areaUpper = Math.max(0, perLayerUpper * maxLayers);
 
       if (box.roofless || box.openSides) {
-        return Math.max(0, areaUpper);
+        return areaUpper;
       }
 
-      const volumeUpper = Math.floor((box.L * box.W * box.H) / (pallet.L * pallet.W * pallet.H));
+      const volumeUpper = Math.floor((box.L * box.W * box.H) / Math.max(EPS, getCargoVolume(pallet)));
 
       return Math.max(0, Math.min(areaUpper, volumeUpper));
     }
@@ -3162,7 +4469,9 @@
 
       const items = buildSingleItems(pallet.L, pallet.W, pallet.H, count, {
         lockRotation: Boolean(pallet.lockRotation),
-        weight: pallet.weight
+        weight: pallet.weight,
+        shape: pallet.shape || 'box',
+        D: pallet.D
       });
       const plan = await bestSingleContainerPlan3D(
         type,
@@ -3176,7 +4485,7 @@
     }
 
     async function estimateSingleCapacity3D(type, pallet, wantedLayers, options = {}) {
-      const key = `${type}|${pallet.L}|${pallet.W}|${pallet.H}|${pallet.weight ?? ''}|${wantedLayers}|${pallet.lockRotation ? 1 : 0}|${getMaxContainerWeight()}`;
+      const key = `${type}|${getContainerDimensionsSignature(type)}|${pallet.shape || 'box'}|${pallet.L}|${pallet.W}|${pallet.H}|${pallet.D ?? ''}|${pallet.weight ?? ''}|${wantedLayers}|${pallet.lockRotation ? 1 : 0}|${getMaxContainerWeight()}`;
 
       if (singleCapacityCache.has(key)) return singleCapacityCache.get(key);
 
@@ -3227,12 +4536,367 @@
       const first = items[0];
 
       return items.every(item => (
+        getPlacementShape(item) === getPlacementShape(first) &&
         Math.abs(item.L - first.L) <= EPS &&
         Math.abs(item.W - first.W) <= EPS &&
         Math.abs(item.H - first.H) <= EPS &&
         Boolean(item.lockRotation) === Boolean(first.lockRotation) &&
         weightsMatchForIdenticalItems(item, first)
       ));
+    }
+
+    function itemsShareFastCylinderGeometry(items, wantedLayers, mode = getEquipmentMode()) {
+      if (!items?.length || !items.every(isCylinder)) return false;
+      const first = items[0];
+      const diameter = Number(first.D ?? first.L);
+      if (!Number.isFinite(diameter) || diameter <= 0) return false;
+      if (!items.every(item => Math.abs(Number(item.D ?? item.L) - diameter) <= EPS)) return false;
+
+      if (wantedLayers > 1) {
+        const height = Number(first.H);
+        if (!items.every(item => Math.abs(Number(item.H) - height) <= EPS)) return false;
+      }
+
+      const firstGeometryState = getContainerOrder(mode).map(type => ({
+        fits: canItemFitInEmptyContainerBox(CONTAINERS[type], first),
+        needsRoofClearance: openTopPlacementNeedsRoofOpeningClearance(CONTAINERS[type], first)
+      }));
+
+      return items.every(item => getContainerOrder(mode).every((type, index) => (
+        canItemFitInEmptyContainerBox(CONTAINERS[type], item) === firstGeometryState[index].fits &&
+        openTopPlacementNeedsRoofOpeningClearance(CONTAINERS[type], item) === firstGeometryState[index].needsRoofClearance
+      )));
+    }
+
+    function makeFastCylinderGeometryPrototype(items, wantedLayers) {
+      const first = items[0];
+      const prototype = {
+        ...first,
+        baseId: 'fast-cylinder-prototype',
+        weight: '',
+        H: wantedLayers <= 1
+          ? Math.max(...items.map(item => Number(item.H) || 0))
+          : Number(first.H)
+      };
+      prototype.area = getCargoFootprintArea(prototype);
+      prototype.volume = getCargoVolume(prototype);
+      return prototype;
+    }
+
+    function cloneCylinderGeometryTemplate(template) {
+      if (!template) return template;
+      return {
+        ...template,
+        placements: (template.placements || []).map(placement => ({
+          ...placement,
+          item: placement.item ? { ...placement.item } : placement.item
+        }))
+      };
+    }
+
+    async function buildCachedCylinderGeometryTemplate(type, prototype, totalCount, wantedLayers, options = {}) {
+      const geometryUpper = theoreticalUpperBound(CONTAINERS[type], prototype, wantedLayers);
+      const cacheKey = `${type}|${getContainerDimensionsSignature(type)}|${prototype.D ?? prototype.L}|${prototype.H}|${wantedLayers}`;
+
+      if (cylinderGeometryTemplateCache.has(cacheKey)) {
+        if (typeof options.onProgress === 'function') options.onProgress(1);
+        return cloneCylinderGeometryTemplate(cylinderGeometryTemplateCache.get(cacheKey));
+      }
+
+      const template = await buildIdenticalContainerTemplate(
+        type,
+        prototype,
+        Math.max(totalCount, geometryUpper),
+        wantedLayers,
+        options
+      );
+      template.effectiveCapacity = template.geometryCapacity;
+      template.weightLimited = false;
+      cylinderGeometryTemplateCache.set(cacheKey, cloneCylinderGeometryTemplate(template));
+      return cloneCylinderGeometryTemplate(template);
+    }
+
+    function getSortableItemWeight(item) {
+      return itemHasKnownWeight(item) ? getItemWeight(item) : 0;
+    }
+
+    function getSingleTemplateVariableWeightCapacity(template, items, maxWeight = getMaxContainerWeight()) {
+      const geometryCapacity = Math.max(0, Number(template?.geometryCapacity) || 0);
+      if (!geometryCapacity) return 0;
+
+      const ordered = [...items].sort((a, b) => getSortableItemWeight(a) - getSortableItemWeight(b));
+      let count = 0;
+      let weight = 0;
+
+      for (const item of ordered) {
+        if (count >= geometryCapacity) break;
+        const nextWeight = weight + getSortableItemWeight(item);
+        if (nextWeight > maxWeight + EPS) break;
+        weight = nextWeight;
+        count++;
+      }
+
+      return count;
+    }
+
+    function enumerateContainerCountCombinations(types, totalContainers) {
+      const combinations = [];
+      const counts = Array(types.length).fill(0);
+
+      const visit = (index, remaining) => {
+        if (index === types.length - 1) {
+          counts[index] = remaining;
+          combinations.push(Object.fromEntries(types.map((type, idx) => [type, counts[idx]])));
+          return;
+        }
+
+        for (let count = 0; count <= remaining; count++) {
+          counts[index] = count;
+          visit(index + 1, remaining - count);
+        }
+      };
+
+      visit(0, totalContainers);
+      return combinations;
+    }
+
+    function getContainerCombinationMetrics(counts, templatesByType, mode, totalUnits) {
+      let capacity = 0;
+      let rank = 0;
+      let largestRank = -1;
+
+      Object.entries(counts).forEach(([type, count]) => {
+        if (!count) return;
+        capacity += count * (templatesByType.get(type)?.geometryCapacity || 0);
+        rank += count * containerRank(type, mode);
+        largestRank = Math.max(largestRank, containerRank(type, mode));
+      });
+
+      return {
+        capacity,
+        rank,
+        largestRank,
+        excess: Math.max(0, capacity - totalUnits)
+      };
+    }
+
+    function makeTemplateAssignmentBins(counts, templatesByType, mode) {
+      const bins = [];
+      const types = getContainerOrder(mode);
+
+      types.forEach(type => {
+        const count = Number(counts[type]) || 0;
+        const template = templatesByType.get(type);
+        for (let i = 0; i < count; i++) {
+          bins.push({
+            type,
+            template,
+            capacity: template?.geometryCapacity || 0,
+            items: [],
+            usedWeight: 0
+          });
+        }
+      });
+
+      return bins;
+    }
+
+    function tryAssignCylinderItemsToCombination(items, counts, templatesByType, mode, strategy = 0) {
+      const bins = makeTemplateAssignmentBins(counts, templatesByType, mode);
+      const maxWeight = getMaxContainerWeight();
+      const orders = [
+        [...items].sort((a, b) => getSortableItemWeight(b) - getSortableItemWeight(a) || Number(b.H) - Number(a.H)),
+        [...items].sort((a, b) => getSortableItemWeight(a) - getSortableItemWeight(b) || Number(b.H) - Number(a.H)),
+        [...items]
+      ];
+      const orderedItems = orders[strategy % orders.length];
+
+      for (const item of orderedItems) {
+        const itemWeight = getSortableItemWeight(item);
+        const candidates = bins.filter(bin => (
+          bin.items.length < bin.capacity &&
+          bin.usedWeight + itemWeight <= maxWeight + EPS
+        ));
+
+        if (!candidates.length) return null;
+
+        candidates.sort((a, b) => {
+          const aSlots = a.capacity - (a.items.length + 1);
+          const bSlots = b.capacity - (b.items.length + 1);
+          const aWeight = maxWeight - (a.usedWeight + itemWeight);
+          const bWeight = maxWeight - (b.usedWeight + itemWeight);
+
+          if (strategy === 1) {
+            return aWeight - bWeight || aSlots - bSlots || containerRank(a.type, mode) - containerRank(b.type, mode);
+          }
+          if (strategy === 2) {
+            return containerRank(a.type, mode) - containerRank(b.type, mode) || aSlots - bSlots || aWeight - bWeight;
+          }
+          return aSlots - bSlots || aWeight - bWeight || containerRank(a.type, mode) - containerRank(b.type, mode);
+        });
+
+        candidates[0].items.push(item);
+        candidates[0].usedWeight += itemWeight;
+      }
+
+      return bins.filter(bin => bin.items.length > 0);
+    }
+
+    function findVariableWeightCylinderContainerPlan(items, templates, mode = getEquipmentMode()) {
+      const templatesByType = new Map(templates.map(template => [template.type, template]));
+      const usableTypes = getContainerOrder(mode).filter(type => (templatesByType.get(type)?.geometryCapacity || 0) > 0);
+      if (!usableTypes.length) return null;
+
+      const totalUnits = items.length;
+      const maxGeometryCapacity = Math.max(...usableTypes.map(type => templatesByType.get(type).geometryCapacity));
+      const knownWeight = items.reduce((sum, item) => sum + getSortableItemWeight(item), 0);
+      const lowerByCount = Math.ceil(totalUnits / Math.max(1, maxGeometryCapacity));
+      const lowerByWeight = Math.ceil(knownWeight / Math.max(EPS, getMaxContainerWeight()));
+      const lowerBound = Math.max(1, lowerByCount, lowerByWeight);
+
+      for (let containerCount = lowerBound; containerCount <= totalUnits; containerCount++) {
+        const combinations = enumerateContainerCountCombinations(usableTypes, containerCount)
+          .map(counts => ({
+            counts,
+            metrics: getContainerCombinationMetrics(counts, templatesByType, mode, totalUnits)
+          }))
+          .filter(entry => entry.metrics.capacity >= totalUnits)
+          .sort((a, b) => (
+            a.metrics.rank - b.metrics.rank ||
+            a.metrics.excess - b.metrics.excess ||
+            a.metrics.largestRank - b.metrics.largestRank
+          ));
+
+        for (const entry of combinations) {
+          for (let strategy = 0; strategy < 3; strategy++) {
+            const assignedBins = tryAssignCylinderItemsToCombination(
+              items,
+              entry.counts,
+              templatesByType,
+              mode,
+              strategy
+            );
+            if (assignedBins) {
+              return { ...entry, assignedBins, containerCount };
+            }
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function buildBinFromCylinderGeometryTemplate(template, assignedItems) {
+      const box = CONTAINERS[template.type];
+      const sourcePlacements = (template.placements || []).slice(0, assignedItems.length);
+      const idMap = new Map();
+
+      sourcePlacements.forEach((placement, idx) => {
+        idMap.set(placement.baseId, assignedItems[idx]?.baseId);
+      });
+
+      const placements = sourcePlacements.map((placement, idx) => {
+        const item = assignedItems[idx];
+        return {
+          ...placement,
+          baseId: item.baseId,
+          H: item.H,
+          D: item.D,
+          shape: 'cylinder',
+          supportId: placement.supportId ? (idMap.get(placement.supportId) || null) : null,
+          item
+        };
+      });
+
+      const bin = {
+        type: template.type,
+        box,
+        placements,
+        items: [...assignedItems],
+        usedVolume: assignedItems.reduce((sum, item) => sum + item.volume, 0),
+        usedWeight: 0,
+        unknownWeightCount: 0,
+        openedByWeight: false,
+        overWidthWarning: placements.some(p => placementExceedsNominalWidth(p, box)),
+        overHeightWarning: placements.some(p => placementExceedsNominalHeight(p, box) && !box?.topLoad)
+      };
+      syncBinWeightTotals(bin);
+      return bin;
+    }
+
+    async function buildFastGroupedCylinderSolution(items, wantedLayers, mode = getEquipmentMode(), options = {}) {
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
+      const prototype = makeFastCylinderGeometryPrototype(items, wantedLayers);
+      const types = getContainerOrder(mode);
+      const templates = [];
+      const totalTypes = Math.max(1, types.length);
+
+      for (let index = 0; index < types.length; index++) {
+        const template = await buildCachedCylinderGeometryTemplate(
+          types[index],
+          prototype,
+          items.length,
+          wantedLayers,
+          {
+            calculation,
+            onProgress: mapProgress(onProgress, index / totalTypes, (index + 1) / totalTypes)
+          }
+        );
+        templates.push(template);
+        await calculationCheckpoint(calculation, onProgress, (index + 1) / totalTypes, Boolean(calculation?.allowYield));
+      }
+
+      const plan = findVariableWeightCylinderContainerPlan(items, templates, mode);
+      const templatesByType = new Map(templates.map(template => [template.type, template]));
+      const geometrySequence = findFastContainerSequence(items.length, templates, mode, 'geometryCapacity');
+      const geometryWeightAssignment = geometrySequence
+        ? tryAssignCylinderItemsToCombination(
+            items,
+            Object.fromEntries(types.map(type => [type, geometrySequence.filter(value => value === type).length])),
+            templatesByType,
+            mode,
+            0
+          )
+        : null;
+
+      if (!plan) {
+        return {
+          solution: {
+            type: getLargestContainerType(mode),
+            mode,
+            cargoType: 'cylinder',
+            bins: [],
+            unplaced: [...items],
+            algorithm: 'Snabb',
+            weightLimited: Boolean(geometrySequence)
+          },
+          templates
+        };
+      }
+
+      const bins = plan.assignedBins.map(entry => buildBinFromCylinderGeometryTemplate(entry.template, entry.items));
+      const weightLimited = Boolean(
+        geometrySequence &&
+        (
+          !geometryWeightAssignment ||
+          bins.length > geometrySequence.length
+        )
+      );
+
+      if (typeof onProgress === 'function') onProgress(1);
+      return {
+        solution: {
+          type: bins[bins.length - 1]?.type || getLargestContainerType(mode),
+          mode,
+          cargoType: 'cylinder',
+          bins,
+          unplaced: [],
+          algorithm: 'Snabb',
+          weightLimited
+        },
+        templates
+      };
     }
 
     async function buildIdenticalContainerTemplate(type, prototype, totalCount, wantedLayers, options = {}) {
@@ -3253,7 +4917,9 @@
 
       const templateItems = buildSingleItems(prototype.L, prototype.W, prototype.H, upper, {
         lockRotation: Boolean(prototype.lockRotation),
-        weight: ''
+        weight: '',
+        shape: prototype.shape || 'box',
+        D: prototype.D
       });
       const geometryPlan = await bestSingleContainerPlan3D(type, templateItems, wantedLayers, 0, {
         calculation,
@@ -3719,12 +5385,7 @@
     }
 
     function floorBoxesIntersect2D(a, b) {
-      return !(
-        a.x >= b.x + b.L ||
-        a.x + a.L <= b.x ||
-        a.y >= b.y + b.W ||
-        a.y + a.W <= b.y
-      );
+      return footprintsIntersect({ ...a, z: 0, H: 1 }, { ...b, z: 0, H: 1 });
     }
 
     function generateVisualFloorPoints(bin) {
@@ -3750,21 +5411,23 @@
         .sort((a, b) => a.x - b.x || a.y - b.y);
     }
 
-    function canPlaceVisualFloor(bin, x, y, L, W) {
+    function canPlaceVisualFloor(bin, x, y, L, W, item) {
       if (x < 0 || y < 0 || x + L > bin.box.L || y + W > bin.box.W) return false;
 
-      const probe = { x, y, L, W };
+      const probe = { x, y, L, W, D: item.D, shape: item.shape, item };
       return !bin.placements.some(p => floorBoxesIntersect2D(probe, p));
     }
 
     function findVisualFloorPlacement(bin, item) {
       let best = null;
-      const points = generateVisualFloorPoints(bin);
+      const points = isCylinder(item)
+        ? generateCylinderCandidatePoints(bin, item).filter(point => Math.abs(point.z) <= EPS)
+        : generateVisualFloorPoints(bin);
       const options = getItemOrientations(item);
 
       for (const pt of points) {
         for (const opt of options) {
-          if (!canPlaceVisualFloor(bin, pt.x, pt.y, opt.L, opt.W)) continue;
+          if (!canPlaceVisualFloor(bin, pt.x, pt.y, opt.L, opt.W, item)) continue;
 
           const score = [pt.x, pt.y, bin.box.L - (pt.x + opt.L), bin.box.W - (pt.y + opt.W)];
 
@@ -3779,6 +5442,8 @@
                 L: opt.L,
                 W: opt.W,
                 H: item.H,
+                D: item.D,
+                shape: item.shape || 'box',
                 kind: opt.kind,
                 layer: 1,
                 supportId: null,
@@ -3813,6 +5478,8 @@
         L: opt.L,
         W: opt.W,
         H: item.H,
+        D: item.D,
+        shape: item.shape || 'box',
         kind: opt.kind,
         layer: 1,
         supportId: null,
@@ -3828,6 +5495,7 @@
       bin.usedVolume += item.volume;
       bin.visualOnly = true;
       bin.overHeightWarning = bin.overHeightWarning || palletTooTallForContainer(item, bin.box);
+      invalidateBinGeometryCaches(bin);
       return placement;
     }
 
@@ -3990,6 +5658,43 @@
       }
     }
 
+    function getCargoGeometryKey(value) {
+      const shape = getPlacementShape(value);
+      return `${shape}|${formatNumberForRowInput(value.L)}|${formatNumberForRowInput(value.W)}|${formatNumberForRowInput(value.H)}|${formatNumberForRowInput(value.D ?? '')}`;
+    }
+
+    function createCargoGeometry(value) {
+      if (isCylinder(value)) {
+        const radius = Math.max(1, getCylinderRadius(value) - 1);
+        return new THREE.CylinderGeometry(radius, radius, Math.max(value.H - 2, 2), 32, 1, false);
+      }
+
+      return new THREE.BoxGeometry(
+        Math.max(value.L - 2, 2),
+        Math.max(value.H - 2, 2),
+        Math.max(value.W - 2, 2)
+      );
+    }
+
+    function getCargoGeometry(value) {
+      const key = getCargoGeometryKey(value);
+      if (!cargoGeometryCache.has(key)) cargoGeometryCache.set(key, createCargoGeometry(value));
+      return cargoGeometryCache.get(key);
+    }
+
+    function getCargoEdgesGeometry(value) {
+      const key = getCargoGeometryKey(value);
+      if (!cargoEdgesGeometryCache.has(key)) {
+        cargoEdgesGeometryCache.set(key, new THREE.EdgesGeometry(getCargoGeometry(value)));
+      }
+      return cargoEdgesGeometryCache.get(key);
+    }
+
+    function getCargoBaseColor(value) {
+      if (isCylinder(value)) return CYLINDER_COLOR;
+      return value.kind === 'A' ? PALLET_COLOR_A : PALLET_COLOR_B;
+    }
+
     function addUnplacedPalletPlate(startZ, items, solution = lastRenderedSolution) {
       const unplacedItems = uniqueItemsByBaseId(items || []);
       if (!unplacedItems.length) return 0;
@@ -4016,6 +5721,7 @@
 
       const matA = new THREE.MeshLambertMaterial({ color: PALLET_COLOR_A, transparent: true, opacity: 0.86 });
       const matB = new THREE.MeshLambertMaterial({ color: PALLET_COLOR_B, transparent: true, opacity: 0.86 });
+      const matCylinder = new THREE.MeshLambertMaterial({ color: CYLINDER_COLOR, transparent: true, opacity: 0.86 });
 
       layout.placements.forEach(p => {
         const placement = {
@@ -4026,6 +5732,8 @@
           L: p.L,
           W: p.W,
           H: p.H,
+          D: p.item?.D,
+          shape: p.item?.shape || 'box',
           kind: p.kind,
           layer: 1,
           supportId: null,
@@ -4033,13 +5741,11 @@
           item: p.item
         };
 
-        const geo = new THREE.BoxGeometry(
-          Math.max(placement.L - 2, 2),
-          Math.max(placement.H - 2, 2),
-          Math.max(placement.W - 2, 2)
-        );
+        const geo = getCargoGeometry(placement);
 
-        const mat = (placement.kind === 'A' ? matA : matB).clone();
+        const baseColor = getCargoBaseColor(placement);
+        const mat = (baseColor === PALLET_COLOR_A ? matA : (baseColor === PALLET_COLOR_B ? matB : matCylinder)).clone();
+        if (mat.color?.setHex) mat.color.setHex(baseColor);
         mat.userData = {
           baseColor: mat.color?.getHex ? mat.color.getHex() : null,
           baseOpacity: mat.opacity
@@ -4063,7 +5769,7 @@
         group.add(mesh);
 
         const edges = new THREE.LineSegments(
-          new THREE.EdgesGeometry(geo),
+          getCargoEdgesGeometry(placement),
           new THREE.LineBasicMaterial({ color: 0xffb86b, transparent: true, opacity: 0.28 })
         );
         edges.userData = { kind: 'palletEdges' };
@@ -4300,16 +6006,15 @@
 
         const matA = new THREE.MeshLambertMaterial({ color: PALLET_COLOR_A });
         const matB = new THREE.MeshLambertMaterial({ color: PALLET_COLOR_B });
+        const matCylinder = new THREE.MeshLambertMaterial({ color: CYLINDER_COLOR });
 
         bin.placements.forEach(p => {
-          const geo = new THREE.BoxGeometry(
-            Math.max(p.L - 2, 2),
-            Math.max(p.H - 2, 2),
-            Math.max(p.W - 2, 2)
-          );
+          const geo = getCargoGeometry(p);
 
-          const mat = (p.kind === 'A' ? matA : matB).clone();
-          mat.userData = { baseColor: mat.color?.getHex ? mat.color.getHex() : null, baseOpacity: mat.opacity };
+          const baseColor = getCargoBaseColor(p);
+          const mat = (baseColor === PALLET_COLOR_A ? matA : (baseColor === PALLET_COLOR_B ? matB : matCylinder)).clone();
+          if (mat.color?.setHex) mat.color.setHex(baseColor);
+          mat.userData = { baseColor: mat.color?.getHex ? mat.color.getHex() : baseColor, baseOpacity: mat.opacity };
 
           const mesh = new THREE.Mesh(geo, mat);
           mesh.userData = { kind: 'pallet', placement: p, bin, solution, box, mesh };
@@ -4327,7 +6032,7 @@
           group.add(mesh);
 
           const e = new THREE.LineSegments(
-            new THREE.EdgesGeometry(geo),
+            getCargoEdgesGeometry(p),
             new THREE.LineBasicMaterial({ color: 0, transparent: true, opacity: 0.15 })
           );
           e.userData = { kind: 'palletEdges' };
@@ -4484,16 +6189,25 @@
 
     function showRotatePalletButton(hit) {
       hoveredPalletHit = hit;
+      clearPalletHoverHighlight();
+
+      if (hit?.mesh?.material?.color?.setHex) {
+        hit.mesh.material.color.setHex(PALLET_HOVER_COLOR);
+      }
+
+      if (isCylinder(hit?.placement || hit?.item)) {
+        els.rotatePalletBtn.hidden = true;
+        els.rotatePalletBtn.classList.remove('is-visible');
+        els.rotatePalletBtn._palletHit = null;
+        renderer.domElement.style.cursor = 'grab';
+        return;
+      }
+
       els.rotatePalletBtn._palletHit = hit;
       els.rotatePalletBtn.hidden = false;
       els.rotatePalletBtn.classList.add('is-visible');
       placeRotateButtonAtPalletCenter(hit);
       renderer.domElement.style.cursor = 'pointer';
-
-      clearPalletHoverHighlight();
-      if (hit?.mesh?.material?.color?.setHex) {
-        hit.mesh.material.color.setHex(PALLET_HOVER_COLOR);
-      }
     }
 
     function hideRotatePalletButton() {
@@ -4750,13 +6464,17 @@
       });
     }
 
-    function saveManualModeState(mode = activeEquipmentMode) {
+    function getManualModeStateKey(mode = activeEquipmentMode, cargoType = activeManualCargoType) {
+      return `${cargoType || 'pallet'}|${mode || 'dry'}`;
+    }
+
+    function saveManualModeState(mode = activeEquipmentMode, cargoType = activeManualCargoType) {
       if (!mode || !manualMode) return;
 
       const solution = manualSolution || lastRenderedSolution;
       if (!solution) return;
 
-      manualModeStates.set(mode, {
+      manualModeStates.set(getManualModeStateKey(mode, cargoType), {
         solution: cloneSolution(solution),
         inputDirty: manualModeInputDirty,
         ui: getStatsUiSnapshot()
@@ -4764,14 +6482,15 @@
     }
 
     function persistCurrentManualModeState() {
-      saveManualModeState(activeEquipmentMode);
+      saveManualModeState(activeEquipmentMode, activeManualCargoType);
     }
 
-    function restoreManualModeStateForMode(mode) {
-      const state = manualModeStates.get(mode);
+    function restoreManualModeStateForMode(mode, cargoType = getCargoType()) {
+      const state = manualModeStates.get(getManualModeStateKey(mode, cargoType));
       if (!state?.solution) return false;
 
       manualMode = true;
+      activeManualCargoType = cargoType;
       manualSolution = cloneSolution(state.solution);
       manualModeInputDirty = Boolean(state.inputDirty);
       updateEquipmentUi();
@@ -4785,17 +6504,19 @@
 
     function syncManualModeWithEquipmentMode() {
       const selectedMode = getEquipmentMode();
-      if (selectedMode === activeEquipmentMode) return false;
+      const selectedCargoType = getCargoType();
+      if (selectedMode === activeEquipmentMode && selectedCargoType === activeManualCargoType) return false;
 
-      saveManualModeState(activeEquipmentMode);
+      saveManualModeState(activeEquipmentMode, activeManualCargoType);
       activeEquipmentMode = selectedMode;
+      activeManualCargoType = selectedCargoType;
       manualMode = false;
       manualSolution = null;
       manualModeInputDirty = false;
       hideRotatePalletButton();
       resetPalletPointerDownState();
 
-      if (restoreManualModeStateForMode(selectedMode)) {
+      if (restoreManualModeStateForMode(selectedMode, selectedCargoType)) {
         forceHideLoadingBar();
         return true;
       }
@@ -4812,24 +6533,25 @@
       els.reqText.innerText = formatContainerCounts(solution.bins || [], mode);
 
       const notes = [];
+      const cargoType = solution.cargoType || getCargoType();
       const widthWarningCount = solutionWidthWarningCount(solution);
       const openTopOverheightCount = solutionOpenTopOverheightCount(solution);
 
       if (widthWarningCount > 0) {
-        notes.push(`<span class="warning">Överbredd på flat rack: ${widthWarningCount} pall(ar).</span>`);
+        notes.push(`<span class="warning">Överbredd på flat rack: ${cargoCountText(widthWarningCount, cargoType)}.</span>`);
       }
 
       if (openTopOverheightCount > 0) {
-        notes.push(`<span>Open top överhöjd: ${openTopOverheightCount} pall(ar).</span>`);
+        notes.push(`<span>Open top överhöjd: ${cargoCountText(openTopOverheightCount, cargoType)}.</span>`);
       }
 
       if (solution.unplaced?.length) {
-        notes.push(`<span class="warning">${solution.unplaced.length} pall(ar) står fortfarande utanför.</span>`);
+        notes.push(`<span class="warning">${cargoCountText(solution.unplaced.length, cargoType)} står fortfarande utanför.</span>`);
       }
 
       els.msgBox.innerHTML = notes.length
         ? notes.join('<br>')
-        : '<span class="success">Alla pallar placerades manuellt.</span>';
+        : `<span class="success">Alla ${getCargoConfig(cargoType).plural} placerades manuellt.</span>`;
       updateSolutionStats(solution);
     }
 
@@ -4851,6 +6573,7 @@
       manualSolution = null;
       manualModeInputDirty = false;
       activeEquipmentMode = getEquipmentMode();
+      activeManualCargoType = getCargoType();
       hideRotatePalletButton();
       resetPalletPointerDownState();
       palletDragState = null;
@@ -4869,27 +6592,52 @@
       }));
     }
 
+    function getCylinderRowsInputState() {
+      return [...els.cylinderRows.querySelectorAll('.cylinder-row')].map(rowEl => ({
+        rowId: rowEl.dataset.rowId || '',
+        count: rowEl.querySelector('[data-field="count"]')?.value ?? '',
+        H: rowEl.querySelector('[data-field="H"]')?.value ?? '',
+        D: rowEl.querySelector('[data-field="D"]')?.value ?? '',
+        weight: rowEl.querySelector('[data-field="weight"]')?.value ?? ''
+      }));
+    }
+
     function getPalletRowsInputSignature() {
       return JSON.stringify(getPalletRowsInputState());
     }
 
+    function getCylinderRowsInputSignature() {
+      return JSON.stringify(getCylinderRowsInputState());
+    }
+
+    function getActiveCargoRowsInputState() {
+      return isCylinderMode() ? getCylinderRowsInputState() : getPalletRowsInputState();
+    }
+
     function getPackingInputSignature() {
       return JSON.stringify({
+        cargoType: getCargoType(),
         equipmentMode: getEquipmentMode(),
         stackable: Boolean(els.stack.checked),
         layers: els.layers.value ?? '',
         maxContainerWeight: els.maxContainerWeight.value ?? '',
-        rows: getPalletRowsInputState()
+        containerDimensions: getContainerDimensionSettingsSnapshot(),
+        rows: getActiveCargoRowsInputState()
       });
     }
 
     function handlePalletRowsChanged() {
       const rowsSignature = getPalletRowsInputSignature();
       if (rowsSignature === lastHandledPalletRowsSignature) return;
-
       lastHandledPalletRowsSignature = rowsSignature;
-      resetManualModesAfterPalletInputChange();
-      update();
+      handlePackingInputsChanged();
+    }
+
+    function handleCylinderRowsChanged() {
+      const rowsSignature = getCylinderRowsInputSignature();
+      if (rowsSignature === lastHandledCylinderRowsSignature) return;
+      lastHandledCylinderRowsSignature = rowsSignature;
+      handlePackingInputsChanged();
     }
 
     function enterManualMode() {
@@ -4907,8 +6655,9 @@
 
     function resetManualModeAndRepack() {
       const mode = getEquipmentMode();
-      manualModeStates.delete(mode);
+      manualModeStates.delete(getManualModeStateKey(mode, getCargoType()));
       activeEquipmentMode = mode;
+      activeManualCargoType = getCargoType();
       manualMode = false;
       manualSolution = null;
       manualModeInputDirty = false;
@@ -5084,7 +6833,7 @@
 
       if (!drop) {
         state.mesh.position.copy(state.startPosition);
-        setRotationFeedback('Pallen flyttades inte. Släpp den inne i en container där den får plats.');
+        setRotationFeedback(`${getCargoNoun(1, true)}n flyttades inte. Släpp den inne i en container där den får plats.`);
         return;
       }
 
@@ -5103,7 +6852,7 @@
       updateManualModeUi();
       persistCurrentManualModeState();
       autoFitCamera();
-      setRotationFeedback(`Pallen flyttades in i ${formatContainerType(drop.bin.type)}.`, true);
+      setRotationFeedback(`${getCargoNoun(1, true)}n flyttades in i ${formatContainerType(drop.bin.type)}.`, true);
       event?.preventDefault?.();
     }
 
@@ -5351,22 +7100,14 @@
     function updatePalletMeshGeometry(mesh, placement) {
       if (!mesh) return;
 
-      mesh.geometry?.dispose?.();
-      mesh.geometry = new THREE.BoxGeometry(
-        Math.max(placement.L - 2, 2),
-        Math.max(placement.H - 2, 2),
-        Math.max(placement.W - 2, 2)
-      );
+      mesh.geometry = getCargoGeometry(placement);
 
-      const baseColor = placement.kind === 'A' ? PALLET_COLOR_A : PALLET_COLOR_B;
+      const baseColor = getCargoBaseColor(placement);
       if (mesh.material?.userData) mesh.material.userData.baseColor = baseColor;
       if (mesh.material?.color?.setHex) mesh.material.color.setHex(baseColor);
 
       const edge = mesh.children.find(child => child.userData?.kind === 'palletEdges');
-      if (edge) {
-        edge.geometry?.dispose?.();
-        edge.geometry = new THREE.EdgesGeometry(mesh.geometry);
-      }
+      if (edge) edge.geometry = getCargoEdgesGeometry(placement);
     }
 
     function refreshBinWarningFlags(bin) {
@@ -5403,6 +7144,7 @@
         updatePalletMeshPosition(entry.mesh, placement, state.bin.box);
       }
 
+      invalidateBinGeometryCaches(state.bin);
       refreshBinWarningFlags(state.bin);
       manualSolution = lastRenderedSolution;
       persistCurrentManualModeState();
@@ -5591,6 +7333,7 @@
 
       bin.usedVolume = Math.max(0, (bin.usedVolume || 0) - (placement.item?.volume || placement.L * placement.W * placement.H));
       syncBinWeightTotals(bin);
+      invalidateBinGeometryCaches(bin);
       refreshBinWarningFlags(bin);
     }
 
@@ -5633,6 +7376,11 @@
 
     function rotatePalletInManualMode(hit) {
       const { bin, placement, mesh } = hit;
+
+      if (isCylinder(placement)) {
+        setRotationFeedback('Stående cylindrar kan inte roteras.');
+        return;
+      }
 
       if (placementHasSupportedChildren(bin, placement)) {
         setRotationFeedback('Pallen har andra pallar ovanpå sig. Flytta eller rotera den översta pallen först.');
@@ -5704,6 +7452,11 @@
       const { placement, solution } = hit;
       if (!placement) return;
 
+      if (isCylinder(placement)) {
+        setRotationFeedback('Stående cylindrar kan inte roteras.');
+        return;
+      }
+
       const nextL = placement.W;
       const nextW = placement.L;
       if (!Number.isFinite(nextL) || !Number.isFinite(nextW) || nextL <= 0 || nextW <= 0) {
@@ -5735,6 +7488,7 @@
     }
 
     function candidateManualRotation(bin, placement) {
+      if (isCylinder(placement)) return null;
       const nextL = placement.W;
       const nextW = placement.L;
 
@@ -5795,6 +7549,12 @@
     function rotatePalletFromHit(hit) {
       if (!hit?.placement) return;
 
+      if (isCylinder(hit.placement)) {
+        setRotationFeedback('Stående cylindrar kan inte roteras.');
+        hideRotatePalletButton();
+        return;
+      }
+
       if (hit.isUnplaced) {
         rotateUnplacedPallet(hit);
         return;
@@ -5829,9 +7589,8 @@
         ? ' En ny låst rad skapades för just den pallen.'
         : '';
 
-      setRotationFeedback(`Pallen roterades manuellt och låstes till ${formatNumberForRowInput(rotated.L)}x${formatNumberForRowInput(rotated.W)} cm.${suffix}`, true);
-      resetManualModesAfterPalletInputChange();
-      update();
+      setRotationFeedback(`Pallen roterades manuellt och låstes till ${formatNumberForRowInput(rotated.L)}x${formatNumberForRowInput(rotated.W)} cm.${suffix} Tryck Beräkna för att packa om.`, true);
+      handlePackingInputsChanged();
     }
 
     function handleRotatePalletClick(event) {
@@ -5840,17 +7599,19 @@
       rotatePalletFromHit(hoveredPalletHit || els.rotatePalletBtn._palletHit);
     }
 
-    function showEmpty20Container(message = "Inga pallar angivna.") {
+    function showEmpty20Container(message = null) {
       const emptyType = getContainerOrder()[0] || '20';
+      const cargo = getCargoConfig();
       const solution = {
         type: emptyType,
         mode: getEquipmentMode(),
+        cargoType: getCargoType(),
         bins: [createEmptyBin(emptyType)],
         unplaced: []
       };
 
-      els.reqText.innerText = '0 pallar';
-      els.msgBox.innerHTML = message;
+      els.reqText.innerText = `0 ${cargo.plural}`;
+      els.msgBox.innerHTML = message || `Inga ${cargo.plural} angivna.`;
       build3DSceneFromSolution(solution);
       autoFitCamera();
     }
@@ -5884,36 +7645,54 @@
       if (typeof onProgress === 'function') onProgress(0.01);
 
       const mode = getEquipmentMode();
-      const rowDefinitions = readPalletRowDefinitions();
-      const pallets = buildPalletsFromRowDefinitions(rowDefinitions);
+      const cargo = getCargoConfig();
+      const rowDefinitions = readActiveCargoRowDefinitions();
+      const cargoUnits = buildActiveCargoUnits(rowDefinitions);
       const wantedLayers = getWantedLayers();
       const capacityTypes = getSingleCapacityTypes(mode);
 
-      if (!pallets.length) {
-        els.reqText.innerText = '0 pallar';
+      if (!cargoUnits.length) {
+        els.reqText.innerText = `0 ${cargo.plural}`;
         setCapacityRows(capacityTypes.map(type => ({ type, value: '-' })));
         setTotalInputStats([], []);
         updateSolutionStats(null);
-        showEmpty20Container('Inga giltiga pallrader angivna.');
+        showEmpty20Container(`Inga giltiga ${cargo.rowPlural} angivna.`);
         if (typeof onProgress === 'function') onProgress(1);
         return;
       }
 
-      const items = buildItemsFromPallets(pallets);
+      const items = buildItemsFromPallets(cargoUnits);
       const tooTallItems = items.filter(palletTooTallForEveryContainer);
       const tooHeavyItems = items.filter(item => itemTooHeavyForContainer(item));
       const excludedIds = new Set([...tooTallItems, ...tooHeavyItems].map(item => item.baseId));
       const packableItems = items.filter(item => !excludedIds.has(item.baseId));
-      const useFastPath = itemsAreIdentical(items);
+      const useIdenticalFastPath = packableItems.length > 0 && itemsAreIdentical(packableItems);
+      const useGroupedCylinderFastPath = (
+        !useIdenticalFastPath &&
+        isCylinderMode() &&
+        itemsShareFastCylinderGeometry(packableItems, wantedLayers, mode)
+      );
+      const useFastPath = useIdenticalFastPath || useGroupedCylinderFastPath;
       let solution;
       let capacityRows = [];
 
-      setTotalInputStats(items, pallets);
+      setTotalInputStats(items, cargoUnits);
       updateSolutionStats({ algorithm: useFastPath ? 'Snabb' : 'Optimerad', bins: [], weightLimited: false });
       await calculationCheckpoint(calculation, onProgress, 0.03, Boolean(calculation?.allowYield));
 
-      if (useFastPath) {
-        const fastResult = await buildFastIdenticalSolution(items, wantedLayers, mode, {
+      if (useGroupedCylinderFastPath) {
+        const fastResult = await buildFastGroupedCylinderSolution(packableItems, wantedLayers, mode, {
+          calculation,
+          onProgress: mapProgress(onProgress, 0.03, 0.86)
+        });
+        solution = fastResult.solution;
+        const templatesByType = new Map(fastResult.templates.map(template => [template.type, template]));
+        capacityRows = capacityTypes.map(type => ({
+          type,
+          value: `${getSingleTemplateVariableWeightCapacity(templatesByType.get(type), packableItems)} st`
+        }));
+      } else if (useIdenticalFastPath) {
+        const fastResult = await buildFastIdenticalSolution(packableItems, wantedLayers, mode, {
           calculation,
           onProgress: mapProgress(onProgress, 0.03, 0.86)
         });
@@ -5952,16 +7731,16 @@
               algorithm: 'Optimerad',
               weightLimited: tooHeavyItems.length > 0
             };
-
-        solution.unplaced = uniqueItemsByBaseId([
-          ...(solution.unplaced || []),
-          ...tooTallItems,
-          ...tooHeavyItems
-        ]);
         solution.algorithm = 'Optimerad';
-        solution.weightLimited = Boolean(solution.weightLimited || tooHeavyItems.length > 0);
       }
 
+      solution.unplaced = uniqueItemsByBaseId([
+        ...(solution.unplaced || []),
+        ...tooTallItems,
+        ...tooHeavyItems
+      ]);
+      solution.weightLimited = Boolean(solution.weightLimited || tooHeavyItems.length > 0);
+      solution.cargoType = getCargoType();
       solution.algorithm = solution.algorithm || (useFastPath ? 'Snabb' : 'Optimerad');
       solution.weightLimited = Boolean(solution.weightLimited || tooHeavyItems.length > 0);
       checkCalculation(calculation);
@@ -5975,6 +7754,7 @@
       const visualSolution = {
         type: solution.type,
         mode: solution.mode || mode,
+        cargoType: getCargoType(),
         bins: solution.bins.length ? solution.bins : [createEmptyBin(getLargestContainerType(mode))],
         unplaced: allUnplacedItems,
         algorithm: solution.algorithm || (useFastPath ? 'Snabb' : 'Optimerad'),
@@ -5990,11 +7770,11 @@
         }
 
         if (tooHeavyItems.length > 0) {
-          messages.push(`<span class="warning">Övervikt: ${tooHeavyItems.length} pall(ar).</span>`);
+          messages.push(`<span class="warning">Övervikt: ${tooHeavyItems.length} ${getCargoNoun(tooHeavyItems.length)}.</span>`);
         }
 
         if (nonSpecialUnplaced.length > 0) {
-          messages.push(`<span class="warning">Ej placerade: ${nonSpecialUnplaced.length} pall(ar).</span>`);
+          messages.push(`<span class="warning">Ej placerade: ${nonSpecialUnplaced.length} ${getCargoNoun(nonSpecialUnplaced.length)}.</span>`);
         }
 
         if (!messages.length) {
@@ -6015,28 +7795,28 @@
       const openTopOverheightCount = solutionOpenTopOverheightCount(solution);
 
       if (widthWarningCount > 0) {
-        notes.push(`<span class="warning">Överbredd: ${widthWarningCount} pall(ar).</span>`);
+        notes.push(`<span class="warning">Överbredd: ${widthWarningCount} ${getCargoNoun(widthWarningCount)}.</span>`);
       }
 
       if (openTopOverheightCount > 0) {
-        notes.push(`<span>Överhöjd: ${openTopOverheightCount} pall(ar).</span>`);
+        notes.push(`<span>Överhöjd: ${openTopOverheightCount} ${getCargoNoun(openTopOverheightCount)}.</span>`);
       }
 
       if (nonSpecialUnplaced.length > 0) {
-        notes.push(`<span class="warning">Ej placerade: ${nonSpecialUnplaced.length} pall(ar).</span>`);
+        notes.push(`<span class="warning">Ej placerade: ${nonSpecialUnplaced.length} ${getCargoNoun(nonSpecialUnplaced.length)}.</span>`);
       }
 
       if (tooTallItems.length > 0) {
-        notes.push(`<span class="warning">Out of gauge: ${tooTallItems.length} pall(ar).</span>`);
+        notes.push(`<span class="warning">Out of gauge: ${tooTallItems.length} ${getCargoNoun(tooTallItems.length)}.</span>`);
       }
 
       if (tooHeavyItems.length > 0) {
-        notes.push(`<span class="warning">Övervikt: ${tooHeavyItems.length} pall(ar).</span>`);
+        notes.push(`<span class="warning">Övervikt: ${tooHeavyItems.length} ${getCargoNoun(tooHeavyItems.length)}.</span>`);
       }
 
       els.msgBox.innerHTML = notes.length
         ? notes.join('<br>')
-        : '<span class="success">Alla pallar placerades.</span>';
+        : `<span class="success">Alla ${cargo.plural} placerades.</span>`;
 
       updateSolutionStats(solution);
       build3DSceneFromSolution(visualSolution);
@@ -6114,7 +7894,7 @@
     }
 
     function getCurrentTotalPalletCount() {
-      return readPalletRowDefinitions().reduce((sum, row) => sum + row.count, 0);
+      return readActiveCargoRowDefinitions().reduce((sum, row) => sum + row.count, 0);
     }
 
     function setLoadingProgress(progress, title = 'Beräknar packning') {
@@ -6174,7 +7954,7 @@
         .replace(/'/g, '&#039;');
     }
 
-    const PDF_TITLE = 'Pallet Packing Report';
+    const PDF_TITLE = 'Eriks Packing Calculator Report';
     const PDF_LOCALE = 'en-US';
 
     function normalizePdfText(value) {
@@ -6285,18 +8065,53 @@
     }
 
     function getTotalVolumeSummaryForPdf(rows) {
-      const volume = rows.reduce((sum, row) => sum + (row.count * row.L * row.W * row.H), 0) / 1000000;
+      const volume = rows.reduce((sum, row) => sum + (row.count * getCargoVolume(row)), 0) / 1000000;
       return `${formatPdfNumber(volume, 2)} m3`;
     }
 
-    function getPalletRowsForPdf() {
-      return readPalletRowDefinitions().map((row, idx) => [
-        String(idx + 1),
-        String(row.count),
-        `${formatNumberForRowInput(row.L)} x ${formatNumberForRowInput(row.W)} x ${formatNumberForRowInput(row.H)}`,
-        row.weight === '' ? '-' : `${formatNumberForRowInput(row.weight)} kg`,
-        row.lockRotation ? 'Yes' : 'No'
-      ]);
+    function getCargoPdfLabels(count = 2) {
+      const cylinderMode = isCylinderMode();
+      const singular = cylinderMode ? 'cylinder' : 'pallet';
+      const plural = cylinderMode ? 'cylinders' : 'pallets';
+      return {
+        singular,
+        plural,
+        noun: Number(count) === 1 ? singular : plural,
+        totalLabel: cylinderMode ? 'Total cylinders' : 'Total pallets',
+        rowTitle: cylinderMode ? 'Cylinder rows' : 'Pallet rows',
+        equipmentColumn: cylinderMode ? 'Cylinders' : 'Pallets'
+      };
+    }
+
+    function getCargoRowsTableForPdf() {
+      const rows = readActiveCargoRowDefinitions();
+
+      if (isCylinderMode()) {
+        return {
+          columns: ['Row', 'Count', 'Height x diameter (cm)', 'Weight'],
+          rows: rows.map((row, idx) => [
+            String(idx + 1),
+            String(row.count),
+            `${formatNumberForRowInput(row.H)} x ${formatNumberForRowInput(row.D)}`,
+            row.weight === '' ? '-' : `${formatNumberForRowInput(row.weight)} kg`
+          ]),
+          widths: [18, 25, 90, 38],
+          title: 'Cylinder rows'
+        };
+      }
+
+      return {
+        columns: ['Row', 'Count', 'Dimensions L x W x H (cm)', 'Weight', 'Rotation locked'],
+        rows: rows.map((row, idx) => [
+          String(idx + 1),
+          String(row.count),
+          `${formatNumberForRowInput(row.L)} x ${formatNumberForRowInput(row.W)} x ${formatNumberForRowInput(row.H)}`,
+          row.weight === '' ? '-' : `${formatNumberForRowInput(row.weight)} kg`,
+          row.lockRotation ? 'Yes' : 'No'
+        ]),
+        widths: [18, 25, 72, 32, 38],
+        title: 'Pallet rows'
+      };
     }
 
     function getBinWeightSummaryForPdf(bin) {
@@ -6340,18 +8155,36 @@
       const unplaced = solution.unplaced?.length || 0;
       const heightWarnings = solution.bins?.filter(binHasHeightWarning).length || 0;
 
-      if (widthWarnings > 0) notes.push(`Flat rack overwidth: ${widthWarnings} pallet(s).`);
-      if (openTopOverheight > 0) notes.push(`Open top overheight: ${openTopOverheight} pallet(s).`);
+      if (widthWarnings > 0) notes.push(`Flat rack overwidth: ${widthWarnings} ${getCargoPdfLabels(widthWarnings).noun}.`);
+      if (openTopOverheight > 0) notes.push(`Open top overheight: ${openTopOverheight} ${getCargoPdfLabels(openTopOverheight).noun}.`);
       if (heightWarnings > 0) notes.push(`Height warning: ${heightWarnings} container(s).`);
       if (solution.weightLimited) notes.push('Weight limit.');
-      if (unplaced > 0) notes.push(`Unplaced pallets: ${unplaced}.`);
+      if (unplaced > 0) notes.push(`Unplaced ${getCargoPdfLabels(unplaced).plural}: ${unplaced}.`);
 
       return notes.join(' ');
     }
 
+    function getPdfCalculationLabel(algorithm) {
+      const labels = {
+        'Optimerad': 'Optimized',
+        'Snabb': 'Fast',
+        'Manuell': 'Manual'
+      };
+      return labels[String(algorithm || '')] || normalizePdfText(algorithm || '-');
+    }
+
+    function getRequiredEquipmentForPdf(solution = lastRenderedSolution) {
+      if (solution?.bins?.length) {
+        return normalizePdfText(formatContainerCounts(solution.bins, solution.mode || getEquipmentMode()));
+      }
+      if (solution?.unplaced?.length) return 'Cargo does not fit';
+      return '-';
+    }
+
     function getSummaryRowsForPdf(solution = lastRenderedSolution) {
-      const rows = readPalletRowDefinitions();
-      const totalPallets = rows.reduce((sum, row) => sum + row.count, 0);
+      const rows = readActiveCargoRowDefinitions();
+      const totalUnits = rows.reduce((sum, row) => sum + row.count, 0);
+      const labels = getCargoPdfLabels(totalUnits);
       const modeConfig = getModeConfig();
       const unplaced = solution?.unplaced?.length || 0;
       const widthWarnings = solution ? solutionWidthWarningCount(solution) : 0;
@@ -6359,18 +8192,18 @@
       const heightWarnings = solution?.bins?.filter(binHasHeightWarning).length || 0;
       const notes = getPdfNotesForSolution(solution);
       const summaryRows = [
-        ['Required equipment', els.reqText.innerText || '-'],
-        ['Total pallets', `${totalPallets}`],
+        ['Required equipment', getRequiredEquipmentForPdf(solution)],
+        [labels.totalLabel, `${totalUnits}`],
         ['Total volume', getTotalVolumeSummaryForPdf(rows)],
         ['Total weight', getWeightSummaryForPdf(rows)],
         ['Max weight / container', `${formatPdfNumber(getMaxContainerWeight(), 1)} kg`],
-        ['Calculation', solution?.algorithm || '-'],
+        ['Calculation', getPdfCalculationLabel(solution?.algorithm)],
         ['Limit', solution?.weightLimited ? 'Weight' : '-'],
         ['Equipment type', modeConfig.label],
         ['Stackable', els.stack.checked ? `Yes, ${getWantedLayers()} layer(s)` : 'No'],
         ['Unplaced', `${unplaced}`],
-        ['Overwidth', `${widthWarnings} pallet(s)`],
-        ['Open top overheight', `${openTopOverheight} pallet(s)`],
+        ['Overwidth', `${widthWarnings} ${getCargoPdfLabels(widthWarnings).noun}`],
+        ['Open top overheight', `${openTopOverheight} ${getCargoPdfLabels(openTopOverheight).noun}`],
         ['Height warnings', `${heightWarnings} container(s)`],
         ...getVisibleCapacityRowsForPdf()
       ];
@@ -7297,8 +9130,9 @@
 
     function drawContainerSummaryLine(doc, bin, idx, y) {
       const pageW = doc.internal.pageSize.getWidth();
-      const pallets = bin.items?.length || bin.placements?.length || 0;
-      const text = `Container ${idx + 1} | ${formatContainerType(bin.type)} | Pallets: ${pallets} | Weight: ${getBinWeightSummaryForPdf(bin)} | Fill: ${formatPdfNumber(fillRatio(bin) * 100, 1)}% | Status: ${getPdfStatusForBin(bin)}`;
+      const unitCount = bin.items?.length || bin.placements?.length || 0;
+      const labels = getCargoPdfLabels(unitCount);
+      const text = `Container ${idx + 1} | ${formatContainerType(bin.type)} | ${labels.equipmentColumn}: ${unitCount} | Weight: ${getBinWeightSummaryForPdf(bin)} | Fill: ${formatPdfNumber(fillRatio(bin) * 100, 1)}% | Status: ${getPdfStatusForBin(bin)}`;
 
       doc.setFillColor(255, 255, 255);
       doc.roundedRect(10, y, pageW - 20, 10, 2, 2, 'F');
@@ -7331,17 +9165,13 @@
         throw new Error('PDF library could not be loaded. Check the internet connection or add jsPDF locally.');
       }
 
-      if (!lastRenderedSolution) {
-        update(true);
-        while (activeCalculation) {
-          await new Promise(resolve => window.setTimeout(resolve, 10));
-        }
-        await nextFrame();
+      if (!lastRenderedSolution || isPackingDirty()) {
+        throw new Error('Tryck Beräkna och invänta en uppdaterad packning innan PDF-export.');
       }
 
       els.exportPdfBtn.disabled = true;
       const originalText = els.exportPdfBtn.textContent;
-      els.exportPdfBtn.textContent = 'Creating PDF...';
+      els.exportPdfBtn.textContent = 'Skapar PDF...';
 
       const originalSolution = lastRenderedSolution ? cloneSolution(lastRenderedSolution) : null;
       const originalManualSolution = manualSolution ? cloneSolution(manualSolution) : null;
@@ -7382,19 +9212,21 @@
         addPdfHeader(doc, 'Details', `Exported ${timestamp}`);
 
         let y = 28;
+        const cargoTable = getCargoRowsTableForPdf();
+        const cargoLabels = getCargoPdfLabels();
         y = drawPdfTable(
           doc,
-          ['Row', 'Count', 'Dimensions L x W x H (cm)', 'Weight', 'Rotation locked'],
-          getPalletRowsForPdf(),
+          cargoTable.columns,
+          cargoTable.rows,
           10,
           y,
-          [18, 25, 72, 32, 38],
-          { title: 'Pallet rows' }
+          cargoTable.widths,
+          { title: cargoTable.title }
         );
 
         y = drawPdfTable(
           doc,
-          ['#', 'Equipment', 'Pallets', 'Weight', 'Fill rate', 'Status'],
+          ['#', 'Equipment', cargoLabels.equipmentColumn, 'Weight', 'Fill rate', 'Status'],
           getSolutionRowsForPdf(exportSolution),
           10,
           y + 4,
@@ -7436,22 +9268,24 @@
           addPdfFooter(doc, i, pageCount);
         }
 
-        doc.save(`pallet-packing-report ${fileStamp}.pdf`);
+        doc.save(`packing-report ${fileStamp}.pdf`);
         els.importMsg.innerHTML = '<span class="success">PDF exporterad.</span>';
       } finally {
         restoreSceneAfterPdfExport(originalSolution, originalCameraState, originalManualSolution);
-        els.exportPdfBtn.disabled = false;
         els.exportPdfBtn.textContent = originalText;
+        updateCalculateButtonState();
       }
     }
 
     function cancelActiveCalculation() {
       if (activeCalculation) activeCalculation.cancelled = true;
       activeCalculation = null;
+      calculationRunning = false;
     }
 
     async function runUpdate(calculation, loadingId = null) {
       const showProgress = loadingId !== null;
+      let completed = false;
 
       try {
         await updateMixedMode(
@@ -7460,6 +9294,11 @@
         );
 
         checkCalculation(calculation);
+        completed = true;
+        if (getPackingInputSignature() === calculation.inputSignature) {
+          lastCalculatedInputSignature = calculation.inputSignature;
+        }
+
         if (showProgress) {
           setLoadingProgress(100);
           await new Promise(resolve => requestAnimationFrame(resolve));
@@ -7471,41 +9310,50 @@
         }
       } finally {
         if (activeCalculation === calculation) activeCalculation = null;
+        calculationRunning = false;
         if (showProgress) hideLoadingBar(loadingId, true);
+        if (!completed) forceHideLoadingBar();
+        updateCalculateButtonState();
       }
     }
 
     function update(force = false) {
-      const inputSignature = getPackingInputSignature();
-      if (!force && inputSignature === lastUpdateInputSignature) {
+      if (!force) {
+        handlePackingInputsChanged();
         return;
       }
-      lastUpdateInputSignature = inputSignature;
+
+      const inputSignature = getPackingInputSignature();
+      if (inputSignature === lastCalculatedInputSignature || calculationRunning || activeCalculation) {
+        updateCalculateButtonState();
+        return;
+      }
 
       clearTimeout(updateDelayTimer);
       cancelActiveCalculation();
       updateJobId++;
+      calculationRunning = true;
 
-      if (syncManualModeWithEquipmentMode()) {
-        return;
-      }
+      manualModeStates.clear();
+      manualMode = false;
+      manualSolution = null;
+      manualModeInputDirty = false;
+      activeEquipmentMode = getEquipmentMode();
+      activeManualCargoType = getCargoType();
+      updateManualModeUi();
+      hideRotatePalletButton();
 
-      if (manualMode) {
-        manualModeInputDirty = true;
-        forceHideLoadingBar();
-        updateManualModeUi();
-        persistCurrentManualModeState();
-        return;
-      }
-
-      const totalPallets = getCurrentTotalPalletCount();
-      const showProgress = totalPallets > LONG_CALC_THRESHOLD;
+      const totalUnits = getCurrentTotalPalletCount();
+      const showProgress = totalUnits > LONG_CALC_THRESHOLD;
       const calculation = {
         jobId: updateJobId,
         cancelled: false,
-        allowYield: showProgress
+        allowYield: showProgress,
+        inputSignature,
+        planCache: new Map()
       };
       activeCalculation = calculation;
+      updateCalculateButtonState();
       const loadingId = showProgress ? showLoadingBar() : null;
 
       if (!showProgress) forceHideLoadingBar();
@@ -7523,8 +9371,16 @@
       renderer.render(scene, camera);
     }
 
+    loadContainerDimensionSettings();
+    renderContainerSettingsInputs();
     addPalletRow({ count: 1 }, false);
-    update();
+    addCylinderRow({ count: 1 }, false);
+    lastHandledPalletRowsSignature = getPalletRowsInputSignature();
+    lastHandledCylinderRowsSignature = getCylinderRowsInputSignature();
+    setCargoType('pallet', { markDirty: false });
+    showEmpty20Container('Ange gods och tryck Beräkna.');
+    lastRenderedSolution = null;
+    updateCalculateButtonState();
     animate();
   </script>
 </body>
