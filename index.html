@@ -885,7 +885,7 @@
     <div class="app-heading">
       <div class="app-heading-copy">
         <h1>Eriks packningskalkylator</h1>
-        <div class="app-version">Extreme Point Heuristic // Version 8.2.0</div>
+        <div class="app-version">Extreme Point Heuristic // Version 8.2.1</div>
       </div>
       <button id="settingsBtn" class="settings-button" type="button" aria-haspopup="dialog" aria-controls="settingsModal">⚙ Inställningar</button>
     </div>
@@ -2886,6 +2886,13 @@
     }
 
     const EPS = 1e-6;
+    const FAST_CYLINDER_DIAMETER_SPREAD_RATIO = 0.01;
+    const LARGE_MIXED_CYLINDER_THRESHOLD = 40;
+    const LARGE_MIXED_ITEM_THRESHOLD = 120;
+    const OPTIMIZED_SEARCH_BUDGET_MS = 12000;
+    const BOUNDED_SEARCH_BUDGET_MS = 10000;
+    const DEFAULT_MAX_CYLINDER_CANDIDATE_POINTS = 1800;
+    const BOUNDED_MAX_CYLINDER_CANDIDATE_POINTS = 360;
 
     function getMaxContainerWeight() {
       const value = parseFloat(els.maxContainerWeight?.value);
@@ -3689,16 +3696,28 @@
       return { xMin, xMax, yMin, yMax, radius };
     }
 
-    function generateCylinderCandidatePoints(bin, item) {
-      const itemKey = `${item.D ?? item.L}|${item.H}`;
+    function generateCylinderCandidatePoints(bin, item, options = {}) {
+      const calculation = options.calculation || null;
+      const configuredMax = Number(options.maxPoints);
+      const maxPoints = Number.isFinite(configuredMax) && configuredMax > 0
+        ? Math.max(16, Math.floor(configuredMax))
+        : DEFAULT_MAX_CYLINDER_CANDIDATE_POINTS;
+      const itemKey = `${item.D ?? item.L}|${item.H}|${maxPoints}`;
       if (bin._cylinderCandidatePointsCache?.itemKey === itemKey) return bin._cylinderCandidatePointsCache.points;
 
+      checkCalculation(calculation);
       const bounds = getCylinderCenterBounds(bin.box, item);
       if (bounds.xMax < bounds.xMin - EPS || bounds.yMax < bounds.yMin - EPS) return [];
 
       const candidates = [];
       const seen = new Set();
+      let capped = false;
       const pushCenter = (cx, cy, z = 0) => {
+        if (capped) return;
+        if (candidates.length >= maxPoints) {
+          capped = true;
+          return;
+        }
         if (!Number.isFinite(cx) || !Number.isFinite(cy) || !Number.isFinite(z)) return;
         if (cx < bounds.xMin - EPS || cx > bounds.xMax + EPS || cy < bounds.yMin - EPS || cy > bounds.yMax + EPS || z < -EPS) return;
         const x = cx - bounds.radius;
@@ -3707,6 +3726,7 @@
         if (seen.has(key)) return;
         seen.add(key);
         candidates.push({ x, y, z });
+        if (candidates.length >= maxPoints) capped = true;
       };
 
       pushCenter(bounds.xMin, bounds.yMin, 0);
@@ -3716,15 +3736,20 @@
 
       const cylinders = (bin.placements || []).filter(isCylinder);
       const zLevels = new Set([0]);
-      cylinders.forEach(p => {
+      cylinders.forEach((p, index) => {
+        if ((index & 31) === 0) checkCalculation(calculation);
         zLevels.add(p.z);
         pushCenter(getCylinderCenter(p).x, getCylinderCenter(p).y, p.z + p.H);
       });
 
       for (const z of zLevels) {
+        if (capped) break;
+        checkCalculation(calculation);
         const sameLevel = cylinders.filter(p => verticalIntervalsOverlap({ x: 0, y: 0, z, L: item.L, W: item.W, H: item.H }, p));
 
-        sameLevel.forEach(p => {
+        for (let pIndex = 0; pIndex < sameLevel.length && !capped; pIndex++) {
+          if ((pIndex & 15) === 0) checkCalculation(calculation);
+          const p = sameLevel[pIndex];
           const pc = getCylinderCenter(p);
           const tangent = pc.radius + bounds.radius;
           pushCenter(pc.x + tangent, pc.y, z);
@@ -3749,12 +3774,14 @@
               pushCenter(pc.x - dx, boundaryY, z);
             }
           }
-        });
+        }
 
-        for (let i = 0; i < sameLevel.length; i++) {
+        for (let i = 0; i < sameLevel.length && !capped; i++) {
+          if ((i & 7) === 0) checkCalculation(calculation);
           const a = sameLevel[i];
           const ac = getCylinderCenter(a);
-          for (let j = i + 1; j < sameLevel.length; j++) {
+          for (let j = i + 1; j < sameLevel.length && !capped; j++) {
+            if ((j & 31) === 0) checkCalculation(calculation);
             const b = sameLevel[j];
             const bc = getCylinderCenter(b);
             const radiusA = ac.radius + bounds.radius;
@@ -3764,12 +3791,15 @@
         }
       }
 
-      if ((bin.placements || []).some(p => !isCylinder(p))) {
-        generateCandidatePoints(bin).forEach(point => pushCenter(point.x + bounds.radius, point.y + bounds.radius, point.z));
+      if (!capped && (bin.placements || []).some(p => !isCylinder(p))) {
+        generateCandidatePoints(bin).forEach((point, index) => {
+          if ((index & 31) === 0) checkCalculation(calculation);
+          pushCenter(point.x + bounds.radius, point.y + bounds.radius, point.z);
+        });
       }
 
       candidates.sort((a, b) => a.z - b.z || a.x - b.x || a.y - b.y);
-      bin._cylinderCandidatePointsCache = { itemKey, points: candidates };
+      bin._cylinderCandidatePointsCache = { itemKey, points: candidates, capped };
       return candidates;
     }
 
@@ -3866,13 +3896,22 @@
 
     function findBestPlacementInBin(bin, item, wantedLayers, heuristic, placementOptions = {}) {
       let best = null;
+      const calculation = placementOptions.calculation || null;
+      const maxCylinderCandidatePoints = placementOptions.maxCylinderCandidatePoints
+        ?? calculation?.maxCylinderCandidatePoints
+        ?? DEFAULT_MAX_CYLINDER_CANDIDATE_POINTS;
       const points = isCylinder(item)
-        ? generateCylinderCandidatePoints(bin, item)
+        ? generateCylinderCandidatePoints(bin, item, {
+            calculation,
+            maxPoints: maxCylinderCandidatePoints
+          })
         : generateCandidatePoints(bin);
 
       const orientations = getItemOrientations(item);
 
-      for (const pt of points) {
+      for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
+        if ((pointIndex & 63) === 0) checkCalculation(calculation);
+        const pt = points[pointIndex];
         for (const opt of orientations) {
           const candidatePoint = getPlacementPointForOrientation(bin.box, item, pt.x, pt.y, opt.L, opt.W);
           const supportInfo = canPlaceInBin(
@@ -3952,10 +3991,21 @@
       }
     }
 
+    class CalculationBudgetExceededError extends Error {
+      constructor() {
+        super('Calculation time budget exceeded');
+        this.name = 'CalculationBudgetExceededError';
+      }
+    }
+
     function checkCalculation(calculation) {
       if (!calculation) return;
       if (calculation.cancelled || calculation.jobId !== updateJobId) {
         throw new CalculationCancelledError();
+      }
+      if (Number.isFinite(calculation.deadline) && performance.now() > calculation.deadline) {
+        calculation.budgetExceeded = true;
+        throw new CalculationBudgetExceededError();
       }
     }
 
@@ -3981,6 +4031,9 @@
       const calculation = options.calculation || null;
       const onProgress = options.onProgress || null;
       const ignoreWeight = Boolean(options.ignoreWeight);
+      const maxCylinderCandidatePoints = options.maxCylinderCandidatePoints
+        ?? calculation?.maxCylinderCandidatePoints
+        ?? DEFAULT_MAX_CYLINDER_CANDIDATE_POINTS;
       let weightLimited = initialBins.some(bin => bin.openedByWeight);
       const totalItems = Math.max(1, orderedItems.length);
       const yieldInterval = Math.max(1, Math.ceil(orderedItems.length / 8));
@@ -3991,7 +4044,7 @@
         let best = null;
 
         for (let i = 0; i < bins.length; i++) {
-          const found = findBestPlacementInBin(bins[i], item, wantedLayers, heuristic, { ignoreWeight });
+          const found = findBestPlacementInBin(bins[i], item, wantedLayers, heuristic, { ignoreWeight, calculation, maxCylinderCandidatePoints });
 
           if (found) {
             const cand = {
@@ -4012,7 +4065,7 @@
           if (!ignoreWeight && itemHasKnownWeight(item)) {
             for (const bin of bins) {
               if (canBinAcceptItemWeight(bin, item)) continue;
-              if (findBestPlacementInBin(bin, item, wantedLayers, heuristic, { ignoreWeight: true })) {
+              if (findBestPlacementInBin(bin, item, wantedLayers, heuristic, { ignoreWeight: true, calculation, maxCylinderCandidatePoints })) {
                 blockedByWeight = true;
                 break;
               }
@@ -4023,7 +4076,7 @@
 
           if (allowOpenNewBins) {
             const newBin = createEmptyBin(type);
-            const found = findBestPlacementInBin(newBin, item, wantedLayers, heuristic, { ignoreWeight });
+            const found = findBestPlacementInBin(newBin, item, wantedLayers, heuristic, { ignoreWeight, calculation, maxCylinderCandidatePoints });
 
             if (found) {
               newBin.openedByWeight = blockedByWeight;
@@ -4141,7 +4194,13 @@
       const itemKey = items.map(item => (
         `${item.baseId}:${item.shape || 'box'}:${item.L}:${item.W}:${item.H}:${item.D ?? ''}:${item.weight ?? ''}:${item.lockRotation ? 1 : 0}`
       )).join('|');
-      return `${type}|${getEquipmentMode()}|${getContainerDimensionsSignature(type)}|${wantedLayers}|${extraRandomOrders}|${options.ignoreWeight ? 1 : 0}|${options.identicalItems ? 1 : 0}|${getMaxContainerWeight()}|${itemKey}`;
+      const tuningKey = [
+        options.randomOrders ?? '',
+        options.maxOrders ?? '',
+        Array.isArray(options.heuristics) ? options.heuristics.join(',') : '',
+        options.maxCylinderCandidatePoints ?? ''
+      ].join(':');
+      return `${type}|${getEquipmentMode()}|${getContainerDimensionsSignature(type)}|${wantedLayers}|${extraRandomOrders}|${options.ignoreWeight ? 1 : 0}|${options.identicalItems ? 1 : 0}|${getMaxContainerWeight()}|${tuningKey}|${itemKey}`;
     }
 
     async function bestSingleContainerPlan3D(type, items, wantedLayers, extraRandomOrders = 8, options = {}) {
@@ -4171,12 +4230,22 @@
         return cloneSingleContainerPlan(planCache.get(planCacheKey));
       }
 
+      checkCalculation(calculation);
       const box = CONTAINERS[type];
       const rng = makeSeededRng(getItemSeed(items) ^ box.L ^ box.W ^ box.H ^ 123);
-      const orders = options.identicalItems
+      const randomOrders = Number.isFinite(Number(options.randomOrders))
+        ? Math.max(0, Math.floor(Number(options.randomOrders)))
+        : extraRandomOrders;
+      const generatedOrders = options.identicalItems
         ? [[...items]]
-        : buildCandidateOrders(items, rng, extraRandomOrders);
-      const heuristics = ['BLF', 'TIGHT', 'SUPPORT', 'WALL'];
+        : buildCandidateOrders(items, rng, randomOrders);
+      const maxOrders = Number.isFinite(Number(options.maxOrders))
+        ? Math.max(1, Math.floor(Number(options.maxOrders)))
+        : generatedOrders.length;
+      const orders = generatedOrders.slice(0, maxOrders);
+      const heuristics = Array.isArray(options.heuristics) && options.heuristics.length
+        ? [...options.heuristics]
+        : ['BLF', 'TIGHT', 'SUPPORT', 'WALL'];
       const totalRuns = Math.max(1, orders.length * heuristics.length);
       let runIndex = 0;
       let best = null;
@@ -4196,6 +4265,7 @@
             {
               calculation,
               ignoreWeight,
+              maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
               onProgress: mapProgress(onProgress, start, end)
             }
           );
@@ -4263,9 +4333,18 @@
       const onProgress = options.onProgress || null;
       const box = CONTAINERS[type];
       const rng = makeSeededRng(getItemSeed(items) ^ box.L ^ box.W ^ box.H ^ 98765);
-      const randomOrders = items.length <= 20 ? 14 : items.length <= 60 ? 10 : 6;
-      const orders = buildCandidateOrders(items, rng, randomOrders);
-      const heuristics = ['BLF', 'TIGHT', 'SUPPORT', 'WALL'];
+      const defaultRandomOrders = items.length <= 20 ? 14 : items.length <= 60 ? 10 : 6;
+      const randomOrders = Number.isFinite(Number(options.randomOrders))
+        ? Math.max(0, Math.floor(Number(options.randomOrders)))
+        : defaultRandomOrders;
+      const generatedOrders = buildCandidateOrders(items, rng, randomOrders);
+      const maxOrders = Number.isFinite(Number(options.maxOrders))
+        ? Math.max(1, Math.floor(Number(options.maxOrders)))
+        : generatedOrders.length;
+      const orders = generatedOrders.slice(0, maxOrders);
+      const heuristics = Array.isArray(options.heuristics) && options.heuristics.length
+        ? [...options.heuristics]
+        : ['BLF', 'TIGHT', 'SUPPORT', 'WALL'];
       const totalRuns = Math.max(1, orders.length * heuristics.length);
       let runIndex = 0;
       let best = null;
@@ -4282,6 +4361,7 @@
             true,
             {
               calculation,
+              maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
               onProgress: mapProgress(onProgress, runIndex / totalRuns, (runIndex + 1) / totalRuns)
             }
           );
@@ -4304,10 +4384,16 @@
       const calculation = options.calculation || null;
       const onProgress = options.onProgress || null;
       const totalUnits = solutionPlacedUnits(solution) + solution.unplaced.length;
-      const order = solution.bins
+      const allBinsByPriority = solution.bins
         .map((bin, idx) => ({ idx, fill: fillRatio(bin), units: bin.items.length }))
         .sort((a, b) => a.fill - b.fill || a.units - b.units);
-      const heuristics = ['SUPPORT', 'BLF', 'TIGHT', 'WALL'];
+      const maxBinsToTry = Number.isFinite(Number(options.maxBinsToTry))
+        ? Math.max(1, Math.floor(Number(options.maxBinsToTry)))
+        : allBinsByPriority.length;
+      const order = allBinsByPriority.slice(0, maxBinsToTry);
+      const heuristics = Array.isArray(options.heuristics) && options.heuristics.length
+        ? [...options.heuristics]
+        : ['SUPPORT', 'BLF', 'TIGHT', 'WALL'];
       const totalRuns = Math.max(1, order.length * heuristics.length);
       let runIndex = 0;
 
@@ -4316,6 +4402,7 @@
         const keptBins = solution.bins.filter((_, i) => i !== entry.idx).map(cloneBin);
 
         for (const heuristic of heuristics) {
+          checkCalculation(calculation);
           const repaired = await packIntoBins(
             keptBins,
             [...removedItems].sort((a, b) => b.volume - a.volume || b.area - a.area),
@@ -4325,6 +4412,7 @@
             false,
             {
               calculation,
+              maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
               onProgress: mapProgress(onProgress, runIndex / totalRuns, (runIndex + 1) / totalRuns)
             }
           );
@@ -4358,47 +4446,65 @@
       const calculation = options.calculation || null;
       const onProgress = options.onProgress || null;
       const totalUnits = solutionPlacedUnits(solution) + solution.unplaced.length;
-      const pairCount = Math.max(1, (solution.bins.length * (solution.bins.length - 1)) / 2);
-      let pairIndex = 0;
-
+      const allPairs = [];
       for (let i = 0; i < solution.bins.length; i++) {
         for (let j = i + 1; j < solution.bins.length; j++) {
-          const combinedItems = [...solution.bins[i].items, ...solution.bins[j].items];
-          const merged = await bestSingleContainerPlan3D(
-            solution.type,
-            combinedItems,
-            wantedLayers,
-            6,
-            {
-              calculation,
-              onProgress: mapProgress(onProgress, pairIndex / pairCount, (pairIndex + 1) / pairCount)
-            }
-          );
-
-          if (merged.items.length === combinedItems.length) {
-            const nextBins = solution.bins
-              .filter((_, idx) => idx !== i && idx !== j)
-              .map(cloneBin);
-
-            nextBins.push(makeBinFromSinglePlan(solution.type, merged));
-
-            const candidate = {
-              type: solution.type,
-              mode: solution.mode,
-              bins: nextBins,
-              unplaced: [...solution.unplaced],
-              weightLimited: Boolean(solution.weightLimited || merged.weightLimited),
-              algorithm: solution.algorithm || ''
-            };
-
-            if (isSolutionBetter(candidate, solution, totalUnits)) {
-              return candidate;
-            }
-          }
-
-          pairIndex++;
-          await calculationCheckpoint(calculation, onProgress, pairIndex / pairCount, Boolean(calculation?.allowYield));
+          allPairs.push({
+            i,
+            j,
+            units: solution.bins[i].items.length + solution.bins[j].items.length,
+            fill: fillRatio(solution.bins[i]) + fillRatio(solution.bins[j])
+          });
         }
+      }
+      allPairs.sort((a, b) => a.units - b.units || a.fill - b.fill || a.i - b.i || a.j - b.j);
+      const maxPairChecks = Number.isFinite(Number(options.maxPairChecks))
+        ? Math.max(0, Math.floor(Number(options.maxPairChecks)))
+        : allPairs.length;
+      const pairs = allPairs.slice(0, maxPairChecks);
+      const pairCount = Math.max(1, pairs.length);
+
+      for (let pairIndex = 0; pairIndex < pairs.length; pairIndex++) {
+        checkCalculation(calculation);
+        const { i, j } = pairs[pairIndex];
+        const combinedItems = [...solution.bins[i].items, ...solution.bins[j].items];
+        const merged = await bestSingleContainerPlan3D(
+          solution.type,
+          combinedItems,
+          wantedLayers,
+          6,
+          {
+            calculation,
+            maxOrders: options.maxOrders,
+            randomOrders: options.randomOrders,
+            heuristics: options.heuristics,
+            maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
+            onProgress: mapProgress(onProgress, pairIndex / pairCount, (pairIndex + 1) / pairCount)
+          }
+        );
+
+        if (merged.items.length === combinedItems.length) {
+          const nextBins = solution.bins
+            .filter((_, idx) => idx !== i && idx !== j)
+            .map(cloneBin);
+
+          nextBins.push(makeBinFromSinglePlan(solution.type, merged));
+
+          const candidate = {
+            type: solution.type,
+            mode: solution.mode,
+            bins: nextBins,
+            unplaced: [...solution.unplaced],
+            weightLimited: Boolean(solution.weightLimited || merged.weightLimited),
+            algorithm: solution.algorithm || ''
+          };
+
+          if (isSolutionBetter(candidate, solution, totalUnits)) {
+            return candidate;
+          }
+        }
+
+        await calculationCheckpoint(calculation, onProgress, (pairIndex + 1) / pairCount, Boolean(calculation?.allowYield));
       }
 
       return solution;
@@ -4410,18 +4516,23 @@
       let current = cloneSolution(solution);
       let improved = true;
       let guard = 0;
-      const maxGuards = 12;
+      const totalUnits = solutionPlacedUnits(current) + current.unplaced.length;
+      const largeSearch = current.bins.length > 8 || totalUnits > 80;
+      const maxGuards = largeSearch ? 2 : 12;
 
       while (improved && guard < maxGuards) {
         checkCalculation(calculation);
         const guardStart = guard / maxGuards;
         const guardEnd = (guard + 1) / maxGuards;
-        const guardMid = guardStart + ((guardEnd - guardStart) * 0.55);
+        const guardMid = guardStart + ((guardEnd - guardStart) * 0.62);
         guard++;
         improved = false;
 
         const eliminated = await tryEliminateSparseBin(current, wantedLayers, {
           calculation,
+          maxBinsToTry: largeSearch ? 3 : undefined,
+          heuristics: largeSearch ? ['SUPPORT', 'BLF'] : undefined,
+          maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
           onProgress: mapProgress(onProgress, guardStart, guardMid)
         });
         if (eliminated !== current && eliminated.bins.length < current.bins.length) {
@@ -4431,13 +4542,19 @@
           continue;
         }
 
-        const merged = await tryPairwiseMerge(current, wantedLayers, {
-          calculation,
-          onProgress: mapProgress(onProgress, guardMid, guardEnd)
-        });
-        if (merged !== current && merged.bins.length < current.bins.length) {
-          current = merged;
-          improved = true;
+        // Parvis sammanslagning är kvadratisk i antalet containrar och varje par
+        // startar i sin tur en komplett 3D-sökning. Den är bara rimlig för små lösningar.
+        if (!largeSearch && current.bins.length <= 8) {
+          const merged = await tryPairwiseMerge(current, wantedLayers, {
+            calculation,
+            maxPairChecks: 28,
+            maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
+            onProgress: mapProgress(onProgress, guardMid, guardEnd)
+          });
+          if (merged !== current && merged.bins.length < current.bins.length) {
+            current = merged;
+            improved = true;
+          }
         }
 
         await calculationCheckpoint(calculation, onProgress, guardEnd, Boolean(calculation?.allowYield));
@@ -4466,6 +4583,52 @@
       return bin;
     }
 
+    function canReuseBinPlacementsForType(bin, type, wantedLayers) {
+      const box = CONTAINERS[type];
+      if (!box) return false;
+      if (getBinWeightInfo(bin).knownWeight > getMaxContainerWeight() + EPS) return false;
+
+      return (bin.placements || []).every(placement => {
+        const item = placement.item || placement;
+        const overWidth = isFlatRackOverWidth(box, placement.W);
+        if (placement.L > box.L + EPS || item.H > getContainerHeightLimit(box) + EPS) return false;
+        if (!flatRackOrientationAllowed(box, item, placement.L, placement.W)) return false;
+        if (!canItemEnterContainer(box, item, placement.L, placement.W)) return false;
+        if (placement.x < -EPS || placement.z < -EPS) return false;
+        if (placement.x + placement.L > box.L + EPS || placement.z + item.H > getContainerHeightLimit(box) + EPS) return false;
+
+        if (overWidth) {
+          const centeredY = (box.W - placement.W) / 2;
+          if (Math.abs(placement.y - centeredY) > EPS) return false;
+        } else if (placement.y < -EPS || placement.y + placement.W > box.W + EPS) {
+          return false;
+        }
+
+        if (!placementFitsRoofOpeningClearance(box, item, placement.x, placement.y, placement.L, placement.W)) return false;
+        const allowedLayers = getAllowedLayersForHeight(item.H, wantedLayers, box);
+        return (placement.layer ?? 1) <= allowedLayers;
+      });
+    }
+
+    function makeBinByReusingPlacements(type, bin) {
+      const box = CONTAINERS[type];
+      const placements = (bin.placements || []).map(placement => ({ ...placement }));
+      const reused = {
+        type,
+        box,
+        placements,
+        items: [...(bin.items || [])],
+        usedVolume: bin.usedVolume,
+        usedWeight: bin.usedWeight,
+        unknownWeightCount: bin.unknownWeightCount,
+        openedByWeight: Boolean(bin.openedByWeight),
+        overWidthWarning: placements.some(p => placementExceedsNominalWidth(p, box)),
+        overHeightWarning: placements.some(p => placementExceedsNominalHeight(p, box) && !box?.topLoad)
+      };
+      syncBinWeightTotals(reused);
+      return reused;
+    }
+
     function isShrinkCandidateBetter(a, b, mode) {
       if (!b) return true;
 
@@ -4487,10 +4650,12 @@
     async function shrinkBinsToSmallestPossibleType(solution, wantedLayers, mode = getEquipmentMode(), options = {}) {
       const calculation = options.calculation || null;
       const onProgress = options.onProgress || null;
+      const quick = Boolean(options.quick);
       const shrunkBins = [];
       const totalBins = Math.max(1, solution.bins.length);
 
       for (let binIndex = 0; binIndex < solution.bins.length; binIndex++) {
+        checkCalculation(calculation);
         const bin = solution.bins[binIndex];
         const allowedTypes = getContainerOrder(mode)
           .filter(type => containerRank(type, mode) <= containerRank(bin.type, mode))
@@ -4502,17 +4667,31 @@
           const type = allowedTypes[typeIndex];
           const localStart = (binIndex + (typeIndex / totalTypes)) / totalBins;
           const localEnd = (binIndex + ((typeIndex + 1) / totalTypes)) / totalBins;
-          const plan = await bestSingleContainerPlan3D(type, bin.items, wantedLayers, 5, {
-            calculation,
-            onProgress: mapProgress(onProgress, localStart, localEnd)
-          });
+          let candidateBin = null;
 
-          if (plan.items.length === bin.items.length) {
-            const candidateBin = makeBinFromSinglePlan(type, plan);
-            if (isShrinkCandidateBetter(candidateBin, bestBin, mode)) {
-              bestBin = candidateBin;
+          if (canReuseBinPlacementsForType(bin, type, wantedLayers)) {
+            candidateBin = makeBinByReusingPlacements(type, bin);
+            if (typeof onProgress === 'function') onProgress(localEnd);
+          } else {
+            const plan = await bestSingleContainerPlan3D(type, bin.items, wantedLayers, quick ? 0 : 5, {
+              calculation,
+              randomOrders: quick ? 0 : undefined,
+              maxOrders: quick ? 1 : undefined,
+              heuristics: quick ? ['BLF'] : undefined,
+              maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
+              onProgress: mapProgress(onProgress, localStart, localEnd)
+            });
+
+            if (plan.items.length === bin.items.length) {
+              candidateBin = makeBinFromSinglePlan(type, plan);
             }
           }
+
+          if (candidateBin && isShrinkCandidateBetter(candidateBin, bestBin, mode)) {
+            bestBin = candidateBin;
+          }
+
+          if (containerRank(bestBin.type, mode) === 0) break;
         }
 
         shrunkBins.push(bestBin);
@@ -4548,16 +4727,19 @@
 
         let solution = await solveOpenBins3D(items, startType, wantedLayers, {
           calculation,
+          maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
           onProgress: mapProgress(onProgress, segmentStart, solveEnd)
         });
         solution.mode = mode;
         solution = await polishSolution(solution, wantedLayers, {
           calculation,
+          maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
           onProgress: mapProgress(onProgress, solveEnd, polishEnd)
         });
         solution.mode = mode;
         solution = await shrinkBinsToSmallestPossibleType(solution, wantedLayers, mode, {
           calculation,
+          maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
           onProgress: mapProgress(onProgress, polishEnd, segmentEnd)
         });
         solution.algorithm = 'Optimerad';
@@ -4577,6 +4759,127 @@
         weightLimited: false,
         algorithm: 'Optimerad'
       };
+    }
+
+    async function buildBoundedCapacityRows(items, wantedLayers, capacityTypes, options = {}) {
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
+      const totalTypes = Math.max(1, capacityTypes.length);
+      const rows = [];
+
+      for (let index = 0; index < capacityTypes.length; index++) {
+        checkCalculation(calculation);
+        const type = capacityTypes[index];
+        const plan = items.length
+          ? await bestSingleContainerPlan3D(type, items, wantedLayers, 0, {
+              calculation,
+              randomOrders: 0,
+              maxOrders: 1,
+              heuristics: ['BLF'],
+              maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
+              onProgress: mapProgress(onProgress, index / totalTypes, (index + 1) / totalTypes)
+            })
+          : { placedUnits: 0 };
+        rows.push({ type, value: `${plan.placedUnits || 0} st` });
+      }
+
+      return rows;
+    }
+
+    async function buildBoundedMixedSolution(items, wantedLayers, mode = getEquipmentMode(), options = {}) {
+      if (!items.length) {
+        return {
+          type: getLargestContainerType(mode),
+          mode,
+          bins: [],
+          unplaced: [],
+          weightLimited: false,
+          algorithm: options.algorithm || 'Snabb blandad'
+        };
+      }
+
+      const calculation = options.calculation || null;
+      const onProgress = options.onProgress || null;
+      const startType = getLargestContainerType(mode);
+      let solution = await solveOpenBins3D(items, startType, wantedLayers, {
+        calculation,
+        randomOrders: 0,
+        maxOrders: 2,
+        heuristics: ['BLF', 'TIGHT'],
+        maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
+        onProgress: mapProgress(onProgress, 0, 0.68)
+      });
+      solution.mode = mode;
+      solution = await shrinkBinsToSmallestPossibleType(solution, wantedLayers, mode, {
+        calculation,
+        quick: true,
+        maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
+        onProgress: mapProgress(onProgress, 0.68, 1)
+      });
+      solution.algorithm = options.algorithm || 'Snabb blandad';
+      solution.boundedSearch = true;
+      solution.budgetLimited = Boolean(options.budgetLimited);
+      return solution;
+    }
+
+    function buildEmergencyOneItemPerBinSolution(items, wantedLayers, mode = getEquipmentMode(), calculation = null) {
+      const types = getContainerOrder(mode)
+        .slice()
+        .sort((a, b) => containerRank(a, mode) - containerRank(b, mode));
+      const bins = [];
+      const unplaced = [];
+
+      for (const item of items) {
+        if (calculation) {
+          const savedDeadline = calculation.deadline;
+          calculation.deadline = null;
+          checkCalculation(calculation);
+          calculation.deadline = savedDeadline;
+        }
+
+        let placed = false;
+        for (const type of types) {
+          if (!canItemFitInEmptyContainerBox(CONTAINERS[type], item)) continue;
+          const bin = createEmptyBin(type);
+          const found = findBestPlacementInBin(bin, item, wantedLayers, 'BLF', {
+            calculation: null,
+            maxCylinderCandidatePoints: 16
+          });
+          if (!found) continue;
+          placePlacementInBin(bin, found.placement);
+          bins.push(bin);
+          placed = true;
+          break;
+        }
+        if (!placed) unplaced.push(item);
+      }
+
+      return {
+        type: bins[bins.length - 1]?.type || getLargestContainerType(mode),
+        mode,
+        bins,
+        unplaced,
+        weightLimited: false,
+        algorithm: 'Reserv',
+        boundedSearch: true,
+        budgetLimited: true
+      };
+    }
+
+    async function buildBoundedPlanningResult(items, wantedLayers, mode, capacityTypes, options = {}) {
+      const capacityRows = await buildBoundedCapacityRows(items, wantedLayers, capacityTypes, {
+        calculation: options.calculation,
+        maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
+        onProgress: mapProgress(options.onProgress, 0, 0.26)
+      });
+      const solution = await buildBoundedMixedSolution(items, wantedLayers, mode, {
+        calculation: options.calculation,
+        maxCylinderCandidatePoints: options.maxCylinderCandidatePoints,
+        algorithm: options.algorithm,
+        budgetLimited: options.budgetLimited,
+        onProgress: mapProgress(options.onProgress, 0.26, 1)
+      });
+      return { solution, capacityRows };
     }
 
     function theoreticalUpperBound(box, pallet, wantedLayers) {
@@ -4698,31 +5001,46 @@
     function itemsShareFastCylinderGeometry(items, wantedLayers, mode = getEquipmentMode()) {
       if (!items?.length || !items.every(isCylinder)) return false;
       const first = items[0];
-      const diameter = Number(first.D ?? first.L);
-      if (!Number.isFinite(diameter) || diameter <= 0) return false;
-      if (!items.every(item => Math.abs(Number(item.D ?? item.L) - diameter) <= EPS)) return false;
+      const diameters = items.map(item => Number(item.D ?? item.L));
+      if (!diameters.every(diameter => Number.isFinite(diameter) && diameter > 0)) return false;
+
+      const minDiameter = Math.min(...diameters);
+      const maxDiameter = Math.max(...diameters);
 
       if (wantedLayers > 1) {
+        // Vid stapling måste diametrar och höjder vara identiska så att stödet är exakt.
+        if (maxDiameter - minDiameter > EPS) return false;
         const height = Number(first.H);
         if (!items.every(item => Math.abs(Number(item.H) - height) <= EPS)) return false;
+      } else {
+        // Ett lager: tillåt små diameterskillnader och bygg en konservativ mall
+        // med den största diametern. 1 % täcker t.ex. 135/136 cm utan att
+        // göra snabbvägen alltför grov för verkligt blandade cylinderstorlekar.
+        const relativeSpread = (maxDiameter - minDiameter) / Math.max(EPS, maxDiameter);
+        if (relativeSpread > FAST_CYLINDER_DIAMETER_SPREAD_RATIO + EPS) return false;
       }
 
-      const firstGeometryState = getContainerOrder(mode).map(type => ({
-        fits: canItemFitInEmptyContainerBox(CONTAINERS[type], first),
-        needsRoofClearance: openTopPlacementNeedsRoofOpeningClearance(CONTAINERS[type], first)
+      const prototype = makeFastCylinderGeometryPrototype(items, wantedLayers);
+      const prototypeGeometryState = getContainerOrder(mode).map(type => ({
+        fits: canItemFitInEmptyContainerBox(CONTAINERS[type], prototype),
+        needsRoofClearance: openTopPlacementNeedsRoofOpeningClearance(CONTAINERS[type], prototype)
       }));
 
       return items.every(item => getContainerOrder(mode).every((type, index) => (
-        canItemFitInEmptyContainerBox(CONTAINERS[type], item) === firstGeometryState[index].fits &&
-        openTopPlacementNeedsRoofOpeningClearance(CONTAINERS[type], item) === firstGeometryState[index].needsRoofClearance
+        canItemFitInEmptyContainerBox(CONTAINERS[type], item) === prototypeGeometryState[index].fits &&
+        openTopPlacementNeedsRoofOpeningClearance(CONTAINERS[type], item) === prototypeGeometryState[index].needsRoofClearance
       )));
     }
 
     function makeFastCylinderGeometryPrototype(items, wantedLayers) {
       const first = items[0];
+      const maxDiameter = Math.max(...items.map(item => Number(item.D ?? item.L) || 0));
       const prototype = {
         ...first,
         baseId: 'fast-cylinder-prototype',
+        D: maxDiameter,
+        L: maxDiameter,
+        W: maxDiameter,
         weight: '',
         H: wantedLayers <= 1
           ? Math.max(...items.map(item => Number(item.H) || 0))
@@ -4947,9 +5265,20 @@
 
       const placements = sourcePlacements.map((placement, idx) => {
         const item = assignedItems[idx];
+        const templateRadius = getCylinderRadius(placement);
+        const itemRadius = getCylinderRadius(item);
+        const centerX = Number(placement.x) + templateRadius;
+        const centerY = Number(placement.y) + templateRadius;
+
         return {
           ...placement,
           baseId: item.baseId,
+          // Behåll mallens centrum. När den riktiga cylindern är mindre än
+          // maxmallen ökar då bara frigången; inga nya överlapp kan uppstå.
+          x: centerX - itemRadius,
+          y: centerY - itemRadius,
+          L: item.D,
+          W: item.D,
           H: item.H,
           D: item.D,
           shape: 'cylinder',
@@ -7821,11 +8150,21 @@
         itemsShareFastCylinderGeometry(packableItems, wantedLayers, mode)
       );
       const useFastPath = useIdenticalFastPath || useGroupedCylinderFastPath;
+      const useBoundedMixedPath = (
+        !useFastPath &&
+        (
+          (isCylinderMode() && packableItems.length >= LARGE_MIXED_CYLINDER_THRESHOLD) ||
+          packableItems.length >= LARGE_MIXED_ITEM_THRESHOLD
+        )
+      );
+      const initialAlgorithm = useFastPath
+        ? 'Snabb'
+        : (useBoundedMixedPath ? 'Snabb blandad' : 'Optimerad');
       let solution;
       let capacityRows = [];
 
       setTotalInputStats(items, cargoUnits);
-      updateSolutionStats({ algorithm: useFastPath ? 'Snabb' : 'Optimerad', bins: [], weightLimited: false });
+      updateSolutionStats({ algorithm: initialAlgorithm, bins: [], weightLimited: false });
       await calculationCheckpoint(calculation, onProgress, 0.03, Boolean(calculation?.allowYield));
 
       if (useGroupedCylinderFastPath) {
@@ -7850,36 +8189,106 @@
           type,
           value: `${templatesByType.get(type)?.effectiveCapacity || 0} st`
         }));
-      } else {
-        const totalCapacityTypes = Math.max(1, capacityTypes.length);
-
-        for (let index = 0; index < capacityTypes.length; index++) {
-          const type = capacityTypes[index];
-          const segmentStart = 0.03 + ((0.25 * index) / totalCapacityTypes);
-          const segmentEnd = 0.03 + ((0.25 * (index + 1)) / totalCapacityTypes);
-          const plan = packableItems.length
-            ? await bestSingleContainerPlan3D(type, packableItems, wantedLayers, 6, {
-                calculation,
-                onProgress: mapProgress(onProgress, segmentStart, segmentEnd)
-              })
-            : { placedUnits: 0 };
-          capacityRows.push({ type, value: `${plan.placedUnits || 0} st` });
+      } else if (useBoundedMixedPath) {
+        const previousDeadline = calculation?.deadline;
+        const previousCandidateLimit = calculation?.maxCylinderCandidatePoints;
+        if (calculation) {
+          calculation.deadline = performance.now() + BOUNDED_SEARCH_BUDGET_MS;
+          calculation.maxCylinderCandidatePoints = BOUNDED_MAX_CYLINDER_CANDIDATE_POINTS;
+          calculation.planCache?.clear();
         }
 
-        solution = packableItems.length
-          ? await buildOptimizedMixedSolution(packableItems, wantedLayers, mode, {
+        try {
+          const bounded = await buildBoundedPlanningResult(packableItems, wantedLayers, mode, capacityTypes, {
+            calculation,
+            algorithm: 'Snabb blandad',
+            maxCylinderCandidatePoints: BOUNDED_MAX_CYLINDER_CANDIDATE_POINTS,
+            onProgress: mapProgress(onProgress, 0.03, 0.86)
+          });
+          solution = bounded.solution;
+          capacityRows = bounded.capacityRows;
+        } catch (error) {
+          if (!(error instanceof CalculationBudgetExceededError)) throw error;
+          if (calculation) calculation.deadline = null;
+          solution = buildEmergencyOneItemPerBinSolution(packableItems, wantedLayers, mode, calculation);
+          capacityRows = capacityTypes.map(type => ({ type, value: '-' }));
+        } finally {
+          if (calculation) {
+            calculation.deadline = previousDeadline ?? null;
+            calculation.maxCylinderCandidatePoints = previousCandidateLimit ?? DEFAULT_MAX_CYLINDER_CANDIDATE_POINTS;
+          }
+        }
+      } else {
+        const previousDeadline = calculation?.deadline;
+        const previousCandidateLimit = calculation?.maxCylinderCandidatePoints;
+        if (calculation) {
+          calculation.deadline = performance.now() + OPTIMIZED_SEARCH_BUDGET_MS;
+          calculation.maxCylinderCandidatePoints = previousCandidateLimit ?? DEFAULT_MAX_CYLINDER_CANDIDATE_POINTS;
+          calculation.planCache?.clear();
+        }
+
+        try {
+          const totalCapacityTypes = Math.max(1, capacityTypes.length);
+
+          for (let index = 0; index < capacityTypes.length; index++) {
+            const type = capacityTypes[index];
+            const segmentStart = 0.03 + ((0.25 * index) / totalCapacityTypes);
+            const segmentEnd = 0.03 + ((0.25 * (index + 1)) / totalCapacityTypes);
+            const plan = packableItems.length
+              ? await bestSingleContainerPlan3D(type, packableItems, wantedLayers, 6, {
+                  calculation,
+                  maxCylinderCandidatePoints: calculation?.maxCylinderCandidatePoints,
+                  onProgress: mapProgress(onProgress, segmentStart, segmentEnd)
+                })
+              : { placedUnits: 0 };
+            capacityRows.push({ type, value: `${plan.placedUnits || 0} st` });
+          }
+
+          solution = packableItems.length
+            ? await buildOptimizedMixedSolution(packableItems, wantedLayers, mode, {
+                calculation,
+                maxCylinderCandidatePoints: calculation?.maxCylinderCandidatePoints,
+                onProgress: mapProgress(onProgress, 0.28, 0.86)
+              })
+            : {
+                type: getLargestContainerType(mode),
+                mode,
+                bins: [],
+                unplaced: [],
+                algorithm: 'Optimerad',
+                weightLimited: tooHeavyItems.length > 0
+              };
+          solution.algorithm = 'Optimerad';
+        } catch (error) {
+          if (!(error instanceof CalculationBudgetExceededError)) throw error;
+          if (calculation) {
+            calculation.deadline = performance.now() + BOUNDED_SEARCH_BUDGET_MS;
+            calculation.maxCylinderCandidatePoints = BOUNDED_MAX_CYLINDER_CANDIDATE_POINTS;
+            calculation.planCache?.clear();
+          }
+
+          try {
+            const bounded = await buildBoundedPlanningResult(packableItems, wantedLayers, mode, capacityTypes, {
               calculation,
-              onProgress: mapProgress(onProgress, 0.28, 0.86)
-            })
-          : {
-              type: getLargestContainerType(mode),
-              mode,
-              bins: [],
-              unplaced: [],
-              algorithm: 'Optimerad',
-              weightLimited: tooHeavyItems.length > 0
-            };
-        solution.algorithm = 'Optimerad';
+              algorithm: 'Snabb reserv',
+              budgetLimited: true,
+              maxCylinderCandidatePoints: BOUNDED_MAX_CYLINDER_CANDIDATE_POINTS,
+              onProgress: mapProgress(onProgress, 0.03, 0.86)
+            });
+            solution = bounded.solution;
+            capacityRows = bounded.capacityRows;
+          } catch (fallbackError) {
+            if (!(fallbackError instanceof CalculationBudgetExceededError)) throw fallbackError;
+            if (calculation) calculation.deadline = null;
+            solution = buildEmergencyOneItemPerBinSolution(packableItems, wantedLayers, mode, calculation);
+            capacityRows = capacityTypes.map(type => ({ type, value: '-' }));
+          }
+        } finally {
+          if (calculation) {
+            calculation.deadline = previousDeadline ?? null;
+            calculation.maxCylinderCandidatePoints = previousCandidateLimit ?? DEFAULT_MAX_CYLINDER_CANDIDATE_POINTS;
+          }
+        }
       }
 
       solution.unplaced = uniqueItemsByBaseId([
@@ -7889,7 +8298,7 @@
       ]);
       solution.weightLimited = Boolean(solution.weightLimited || tooHeavyItems.length > 0);
       solution.cargoType = getCargoType();
-      solution.algorithm = solution.algorithm || (useFastPath ? 'Snabb' : 'Optimerad');
+      solution.algorithm = solution.algorithm || initialAlgorithm;
       solution.weightLimited = Boolean(solution.weightLimited || tooHeavyItems.length > 0);
       checkCalculation(calculation);
       setCapacityRows(capacityRows);
@@ -7905,7 +8314,7 @@
         cargoType: getCargoType(),
         bins: solution.bins.length ? solution.bins : [createEmptyBin(getLargestContainerType(mode))],
         unplaced: allUnplacedItems,
-        algorithm: solution.algorithm || (useFastPath ? 'Snabb' : 'Optimerad'),
+        algorithm: solution.algorithm || initialAlgorithm,
         weightLimited: Boolean(solution.weightLimited)
       };
 
@@ -7941,6 +8350,12 @@
       const notes = [];
       const widthWarningCount = solutionWidthWarningCount(solution);
       const openTopOverheightCount = solutionOpenTopOverheightCount(solution);
+
+      if (solution.budgetLimited) {
+        notes.push('<span class="warning">Optimeringen nådde tidsgränsen; en snabb reservlösning användes.</span>');
+      } else if (solution.boundedSearch) {
+        notes.push('<span>Stor blandad lista: begränsad sökning användes för att undvika att beräkningen låser sig.</span>');
+      }
 
       if (widthWarningCount > 0) {
         notes.push(`<span class="warning">Överbredd: ${widthWarningCount} ${getCargoNoun(widthWarningCount)}.</span>`);
@@ -9550,6 +9965,9 @@
         cancelled: false,
         allowYield: showProgress,
         inputSignature,
+        deadline: null,
+        budgetExceeded: false,
+        maxCylinderCandidatePoints: totalUnits > 80 ? 700 : DEFAULT_MAX_CYLINDER_CANDIDATE_POINTS,
         planCache: new Map()
       };
       activeCalculation = calculation;
