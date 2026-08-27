@@ -322,13 +322,6 @@
       margin-bottom: 2px;
     }
 
-    .cargo-help {
-      margin-top: 6px;
-      font-size: 11px;
-      line-height: 1.4;
-      color: var(--sub);
-    }
-
     .rotation-lock-cell {
       display: inline-flex;
       justify-content: center;
@@ -652,8 +645,23 @@
       width: 0%;
       height: 100%;
       border-radius: 999px;
-      background: var(--accent);
+      background: linear-gradient(
+        90deg,
+        rgba(84, 145, 234, 0.96) 0%,
+        rgba(106, 166, 255, 0.98) 38%,
+        rgba(139, 191, 255, 1) 52%,
+        rgba(106, 166, 255, 0.98) 68%,
+        rgba(84, 145, 234, 0.96) 100%
+      );
+      background-size: 220% 100%;
+      box-shadow: 0 0 10px rgba(106, 166, 255, 0.2);
+      animation: loadingBarFlow 1.7s linear infinite;
       transition: width 0.16s linear;
+    }
+
+    @keyframes loadingBarFlow {
+      from { background-position: 110% 0; }
+      to { background-position: -110% 0; }
     }
 
     .color-dot {
@@ -773,17 +781,6 @@
       padding: 18px;
     }
 
-    .settings-note {
-      margin-bottom: 14px;
-      padding: 11px 12px;
-      border-radius: 8px;
-      border: 1px solid rgba(106,166,255,0.28);
-      background: rgba(106,166,255,0.08);
-      color: var(--sub);
-      font-size: 12px;
-      line-height: 1.45;
-    }
-
     .container-settings-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
@@ -797,10 +794,43 @@
       background: #0f1430;
     }
 
+    .container-settings-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 11px;
+    }
+
     .container-settings-card h3 {
-      margin: 0 0 11px;
+      margin: 0;
       color: #fff;
       font-size: 14px;
+    }
+
+    .container-type-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      color: var(--sub);
+      font-size: 10px;
+      text-transform: none;
+      letter-spacing: 0;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .container-type-toggle input {
+      width: auto;
+      margin: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .container-settings-card.is-disabled .container-settings-fields {
+      opacity: 0.46;
     }
 
     .container-settings-fields {
@@ -855,7 +885,7 @@
     <div class="app-heading">
       <div class="app-heading-copy">
         <h1>Eriks packningskalkylator</h1>
-        <div class="app-version">Extreme Point Heuristic // Version 8.1.0</div>
+        <div class="app-version">Extreme Point Heuristic // Version 8.2.0</div>
       </div>
       <button id="settingsBtn" class="settings-button" type="button" aria-haspopup="dialog" aria-controls="settingsModal">⚙ Inställningar</button>
     </div>
@@ -869,6 +899,11 @@
         <label id="cargoTabCylinder" for="cargoCylinder" role="tab" aria-selected="false">Cylindrar</label>
         <span class="mode-pill" aria-hidden="true"></span>
       </div>
+    </div>
+
+    <div class="field">
+      <button id="calculateBtn" class="calculate-button" type="button">Beräkna</button>
+      <div id="calculationState" class="note calculation-pending">Ej beräknad.</div>
     </div>
 
     <div class="input-panel">
@@ -895,10 +930,7 @@
 
         <div class="field import-box">
           <label>Klistra in pallar</label>
-          <textarea id="palletImport" placeholder="(l,b,h)
-//
-(l,b,h,v)
-"></textarea>
+          <textarea id="palletImport"></textarea>
 
           <div class="action-row">
             <button id="importPalletsBtn" class="primary-button" type="button">Importera text</button>
@@ -920,8 +952,6 @@
 
           <div id="cylinderRows" class="cylinder-rows"></div>
 
-          <div class="cargo-help">Cylindrar packas stående. Höjd motsvarar exempelvis rullens width/bredd i leveransnoten.</div>
-
           <div class="action-row">
             <button id="addCylinderRow" class="secondary-button" type="button">+ Lägg till cylinderrad</button>
           </div>
@@ -929,10 +959,7 @@
 
         <div class="field import-box">
           <label>Klistra in cylindrar</label>
-          <textarea id="cylinderImport" placeholder="(höjd,diameter)
-//
-(höjd,diameter,vikt)
-"></textarea>
+          <textarea id="cylinderImport"></textarea>
 
           <div class="action-row">
             <button id="importCylindersBtn" class="primary-button" type="button">Importera text</button>
@@ -967,11 +994,6 @@
     <div class="field">
       <label for="maxContainerWeight">Maxvikt/container (kg)</label>
       <input id="maxContainerWeight" type="number" value="25000" min="1" step="100">
-    </div>
-
-    <div class="field">
-      <button id="calculateBtn" class="calculate-button" type="button">Beräkna</button>
-      <div id="calculationState" class="note calculation-pending">Tryck på Beräkna för att packa godset.</div>
     </div>
 
     <div class="stats">
@@ -1036,7 +1058,6 @@
         <button id="settingsCloseIcon" class="settings-close-icon" type="button" aria-label="Stäng inställningar">×</button>
       </div>
       <div class="settings-content">
-        <div class="settings-note">Anpassa containrarnas invändiga mått och öppningar i centimeter. Ändringar sparas i den här webbläsaren och gör den aktuella packningen inaktuell tills du trycker på Beräkna igen.</div>
         <div id="containerSettingsGrid" class="container-settings-grid"></div>
       </div>
       <div class="settings-footer">
@@ -1072,7 +1093,7 @@
     <div class="overlay-info">
       <div id="palletLegendA"><span class="color-dot" style="background:#4a9eff"></span><span>Längd (A)</span></div>
       <div id="palletLegendB" style="margin-top:4px"><span class="color-dot" style="background:#7bd89c"></span><span>Bredd (B)</span></div>
-      <div id="cylinderLegend" hidden><span class="color-dot" style="background:#6aa6ff"></span><span>Cylinder (stående)</span></div>
+      <div id="cylinderLegend" hidden><span class="color-dot" style="background:#6aa6ff"></span><span>Cylinder</span></div>
       <div style="margin-top:4px"><span class="color-dot" style="background:#c28a55"></span><span id="dimensionLegendLabel">Dörrmått</span></div>
     </div>
   </div>
@@ -1102,7 +1123,7 @@
         W: 235,
         H: 239,
         doorH: 228,
-        doorW: 235
+        doorW: 234
       },
       '40': {
         type: '40',
@@ -1112,7 +1133,7 @@
         W: 235,
         H: 239,
         doorH: 228,
-        doorW: 235
+        doorW: 234
       },
       '40HC': {
         type: '40HC',
@@ -1120,9 +1141,9 @@
         label: "40' HC",
         L: 1203,
         W: 235,
-        H: 269,
-        doorH: 258,
-        doorW: 235
+        H: 270,
+        doorH: 258.5,
+        doorW: 234
       },
       '20OT': {
         type: '20OT',
@@ -1133,8 +1154,8 @@
         H: 234,
         doorH: 228,
         doorW: 234,
-        roofOpenL: 534,
-        roofOpenW: 223,
+        roofOpenL: 567.4,
+        roofOpenW: 225.2,
         roofless: true,
         topLoad: true
       },
@@ -1147,8 +1168,8 @@
         H: 234,
         doorH: 228,
         doorW: 234,
-        roofOpenL: 1155,
-        roofOpenW: 223,
+        roofOpenL: 1179.8,
+        roofOpenW: 223.2,
         roofless: true,
         topLoad: true
       },
@@ -1156,9 +1177,9 @@
         type: '20FR',
         family: 'flatRack',
         label: "20' FR",
-        L: 570,
-        W: 236,
-        H: 224,
+        L: 596,
+        W: 240,
+        H: 229,
         doorH: Infinity,
         doorW: Infinity,
         roofless: true,
@@ -1170,9 +1191,9 @@
         type: '40FR',
         family: 'flatRack',
         label: "40' FR",
-        L: 1166,
-        W: 236,
-        H: 228,
+        L: 1165,
+        W: 237,
+        H: 196,
         doorH: Infinity,
         doorW: Infinity,
         roofless: true,
@@ -1220,7 +1241,8 @@
       ])
     );
 
-    const CONTAINER_SETTINGS_STORAGE_KEY = 'eriks-packningskalkylator-container-settings-8.1.0';
+    const CONTAINER_SETTINGS_STORAGE_KEY = 'eriks-packningskalkylator-container-settings-8.2.0-msc-v1';
+    const CONTAINER_TYPE_SELECTION_STORAGE_KEY = 'eriks-packningskalkylator-container-types-8.2.0-v1';
 
     const EQUIPMENT_MODES = {
       dry: {
@@ -1245,6 +1267,11 @@
         legend: 'Flakmått'
       }
     };
+
+    const DEFAULT_CONTAINER_TYPE_SELECTIONS = Object.freeze(
+      Object.fromEntries(Object.keys(CONTAINERS).map(type => [type, true]))
+    );
+    let enabledContainerTypes = { ...DEFAULT_CONTAINER_TYPE_SELECTIONS };
 
     const CARGO_TYPES = {
       pallet: {
@@ -1303,21 +1330,25 @@
       return EQUIPMENT_MODES[mode] || EQUIPMENT_MODES.dry;
     }
 
+    function isContainerTypeEnabled(type) {
+      return enabledContainerTypes[type] !== false;
+    }
+
     function getContainerOrder(mode = getEquipmentMode()) {
-      return getModeConfig(mode).types;
+      return getModeConfig(mode).types.filter(isContainerTypeEnabled);
     }
 
     function getContainerDisplayOrder(mode = getEquipmentMode()) {
-      return getModeConfig(mode).displayOrder;
+      return getModeConfig(mode).displayOrder.filter(isContainerTypeEnabled);
     }
 
     function getLargestContainerType(mode = getEquipmentMode()) {
       const types = getContainerOrder(mode);
-      return types[types.length - 1] || '20';
+      return types[types.length - 1] || getModeConfig(mode).types[0] || '20';
     }
 
     function getSingleCapacityTypes(mode = getEquipmentMode()) {
-      return getModeConfig(mode).capacitySlots;
+      return getModeConfig(mode).capacitySlots.filter(isContainerTypeEnabled);
     }
 
     function formatContainerType(type) {
@@ -1471,6 +1502,8 @@
     let loadingVisibleSince = 0;
     let loadingToken = 0;
     let hideLoadingTimer = null;
+    let loadingDripTimer = null;
+    let latestRealLoadingProgress = 0;
     let lastLoadingProgress = -1;
     let lockedCameraState = null;
     let lastRenderedSolution = null;
@@ -1525,6 +1558,63 @@
           Object.fromEntries(fields.map(([field]) => [field, Number(CONTAINERS[type][field])]))
         ])
       );
+    }
+
+    function getContainerTypeSelectionSnapshot() {
+      return Object.fromEntries(
+        Object.keys(CONTAINERS).map(type => [type, isContainerTypeEnabled(type)])
+      );
+    }
+
+    function normalizeContainerTypeSelections(settings = {}) {
+      const normalized = Object.fromEntries(
+        Object.keys(CONTAINERS).map(type => [type, settings?.[type] !== false])
+      );
+
+      Object.values(EQUIPMENT_MODES).forEach(config => {
+        if (!config.types.some(type => normalized[type])) {
+          normalized[config.types[0]] = true;
+        }
+      });
+
+      return normalized;
+    }
+
+    function persistContainerTypeSelections() {
+      try {
+        localStorage.setItem(
+          CONTAINER_TYPE_SELECTION_STORAGE_KEY,
+          JSON.stringify(getContainerTypeSelectionSnapshot())
+        );
+        if (els.settingsStatus) els.settingsStatus.textContent = 'Sparat lokalt.';
+      } catch (error) {
+        console.warn('Could not save container type selections.', error);
+        if (els.settingsStatus) els.settingsStatus.textContent = 'Kunde inte spara lokalt.';
+      }
+    }
+
+    function applyContainerTypeSelections(settings, options = {}) {
+      if (!settings || typeof settings !== 'object') return false;
+      const normalized = normalizeContainerTypeSelections(settings);
+      const changed = Object.keys(CONTAINERS).some(
+        type => isContainerTypeEnabled(type) !== Boolean(normalized[type])
+      );
+
+      enabledContainerTypes = normalized;
+      if (changed) clearPackingGeometryCaches();
+      if (options.render !== false) renderContainerSettingsInputs();
+      if (changed && options.persist) persistContainerTypeSelections();
+      if (changed && options.markDirty) handlePackingInputsChanged();
+      return changed;
+    }
+
+    function loadContainerTypeSelections() {
+      try {
+        const stored = localStorage.getItem(CONTAINER_TYPE_SELECTION_STORAGE_KEY);
+        if (stored) applyContainerTypeSelections(JSON.parse(stored), { render: false });
+      } catch (error) {
+        console.warn('Could not load container type selections.', error);
+      }
     }
 
     function getContainerDimensionsSignature(type = null) {
@@ -1589,9 +1679,32 @@
         const card = document.createElement('section');
         card.className = 'container-settings-card';
 
+        card.classList.toggle('is-disabled', !isContainerTypeEnabled(type));
+
+        const header = document.createElement('div');
+        header.className = 'container-settings-card-header';
+
         const title = document.createElement('h3');
         title.textContent = formatContainerType(type);
-        card.appendChild(title);
+
+        const toggleLabel = document.createElement('label');
+        toggleLabel.className = 'container-type-toggle';
+
+        const toggle = document.createElement('input');
+        toggle.type = 'checkbox';
+        toggle.checked = isContainerTypeEnabled(type);
+        toggle.dataset.containerType = type;
+        toggle.dataset.containerEnabled = '1';
+        toggle.setAttribute('aria-label', `Räkna med ${formatContainerType(type)}`);
+
+        const toggleText = document.createElement('span');
+        toggleText.textContent = 'Räkna med';
+
+        toggleLabel.appendChild(toggle);
+        toggleLabel.appendChild(toggleText);
+        header.appendChild(title);
+        header.appendChild(toggleLabel);
+        card.appendChild(header);
 
         const fieldGrid = document.createElement('div');
         fieldGrid.className = 'container-settings-fields';
@@ -1637,6 +1750,34 @@
       els.settingsBtn?.focus();
     }
 
+    function handleContainerTypeToggle(event) {
+      const input = event.target.closest('input[data-container-enabled][data-container-type]');
+      if (!input) return;
+
+      const type = input.dataset.containerType;
+      const mode = CONTAINERS[type]?.family;
+      const next = Boolean(input.checked);
+
+      if (!next) {
+        const remaining = getModeConfig(mode).types.some(
+          candidate => candidate !== type && isContainerTypeEnabled(candidate)
+        );
+
+        if (!remaining) {
+          input.checked = true;
+          if (els.settingsStatus) els.settingsStatus.textContent = 'Minst en containertyp per läge krävs.';
+          return;
+        }
+      }
+
+      if (isContainerTypeEnabled(type) === next) return;
+      enabledContainerTypes[type] = next;
+      input.closest('.container-settings-card')?.classList.toggle('is-disabled', !next);
+      clearPackingGeometryCaches();
+      persistContainerTypeSelections();
+      handlePackingInputsChanged();
+    }
+
     function handleContainerSettingInput(event) {
       const input = event.target.closest('input[data-container-type][data-container-field]');
       if (!input) return;
@@ -1669,13 +1810,19 @@
     }
 
     function resetContainerDimensionSettings() {
-      applyContainerDimensionSettings(DEFAULT_CONTAINER_DIMENSIONS, { render: true, persist: true, markDirty: true });
+      const dimensionsChanged = applyContainerDimensionSettings(DEFAULT_CONTAINER_DIMENSIONS, { render: false });
+      const selectionsChanged = applyContainerTypeSelections(DEFAULT_CONTAINER_TYPE_SELECTIONS, { render: false });
+      renderContainerSettingsInputs();
+
       try {
         localStorage.removeItem(CONTAINER_SETTINGS_STORAGE_KEY);
+        localStorage.removeItem(CONTAINER_TYPE_SELECTION_STORAGE_KEY);
       } catch (error) {
         console.warn('Could not clear saved container settings.', error);
       }
-      if (els.settingsStatus) els.settingsStatus.textContent = 'Standardmått återställda.';
+
+      if (dimensionsChanged || selectionsChanged) handlePackingInputsChanged();
+      if (els.settingsStatus) els.settingsStatus.textContent = 'Standardinställningar återställda.';
     }
 
     function updateCargoUi() {
@@ -1727,7 +1874,7 @@
         els.calculationState.textContent = 'Beräkning pågår.';
       } else if (dirty) {
         els.calculationState.textContent = lastCalculatedInputSignature === null
-          ? 'Tryck Beräkna för att skapa en packning.'
+          ? 'Ej beräknad.'
           : 'Ändringar ej beräknade.';
       } else {
         els.calculationState.textContent = 'Packningen är uppdaterad.';
@@ -1754,7 +1901,10 @@
       if (event.target.matches('[data-settings-close]')) closeSettingsModal();
     });
     els.containerSettingsGrid.addEventListener('input', handleContainerSettingInput);
-    els.containerSettingsGrid.addEventListener('change', normalizeContainerSettingInput);
+    els.containerSettingsGrid.addEventListener('change', event => {
+      handleContainerTypeToggle(event);
+      normalizeContainerSettingInput(event);
+    });
     window.addEventListener('keydown', event => {
       if (event.key === 'Escape' && !els.settingsModal.hidden) closeSettingsModal();
     });
@@ -2322,7 +2472,7 @@
       const parsed = compressPalletRowDefinitions(parseImportedPalletRows(els.palletImport.value));
 
       if (!parsed.length) {
-        els.importMsg.innerHTML = '<span class="warning">Hittade inga giltiga pallrader. Använd formatet (längd,bredd,höjd) eller (längd,bredd,höjd,vikt). Semikolon kan användas om måtten har decimalkomma.</span>';
+        els.importMsg.innerHTML = '<span class="warning">Inga giltiga pallrader hittades.</span>';
         return;
       }
 
@@ -2338,7 +2488,7 @@
       const parsed = compressCylinderRowDefinitions(parseImportedCylinderRows(els.cylinderImport.value));
 
       if (!parsed.length) {
-        els.importMsg.innerHTML = '<span class="warning">Hittade inga giltiga cylinderrader. Använd formatet (höjd,diameter) eller (höjd,diameter,vikt). Semikolon kan användas om måtten har decimalkomma.</span>';
+        els.importMsg.innerHTML = '<span class="warning">Inga giltiga cylinderrader hittades.</span>';
         return;
       }
 
@@ -6622,6 +6772,7 @@
         layers: els.layers.value ?? '',
         maxContainerWeight: els.maxContainerWeight.value ?? '',
         containerDimensions: getContainerDimensionSettingsSnapshot(),
+        containerTypes: getContainerTypeSelectionSnapshot(),
         rows: getActiveCargoRowsInputState()
       });
     }
@@ -7378,7 +7529,6 @@
       const { bin, placement, mesh } = hit;
 
       if (isCylinder(placement)) {
-        setRotationFeedback('Stående cylindrar kan inte roteras.');
         return;
       }
 
@@ -7453,7 +7603,6 @@
       if (!placement) return;
 
       if (isCylinder(placement)) {
-        setRotationFeedback('Stående cylindrar kan inte roteras.');
         return;
       }
 
@@ -7484,7 +7633,7 @@
       updateManualModeUi();
       persistCurrentManualModeState();
       autoFitCamera();
-      setRotationFeedback(`Pallen utanför roterades till ${formatNumberForRowInput(nextL)}x${formatNumberForRowInput(nextW)} cm och lades om på plattan. Dra in den i en container för att placera den.`, true);
+      setRotationFeedback(`Pallen utanför roterades till ${formatNumberForRowInput(nextL)}x${formatNumberForRowInput(nextW)} cm och placerades om på plattan.`, true);
     }
 
     function candidateManualRotation(bin, placement) {
@@ -7550,7 +7699,6 @@
       if (!hit?.placement) return;
 
       if (isCylinder(hit.placement)) {
-        setRotationFeedback('Stående cylindrar kan inte roteras.');
         hideRotatePalletButton();
         return;
       }
@@ -7589,7 +7737,7 @@
         ? ' En ny låst rad skapades för just den pallen.'
         : '';
 
-      setRotationFeedback(`Pallen roterades manuellt och låstes till ${formatNumberForRowInput(rotated.L)}x${formatNumberForRowInput(rotated.W)} cm.${suffix} Tryck Beräkna för att packa om.`, true);
+      setRotationFeedback(`Pallen roterades manuellt och låstes till ${formatNumberForRowInput(rotated.L)}x${formatNumberForRowInput(rotated.W)} cm.${suffix}`, true);
       handlePackingInputsChanged();
     }
 
@@ -7897,27 +8045,62 @@
       return readActiveCargoRowDefinitions().reduce((sum, row) => sum + row.count, 0);
     }
 
-    function setLoadingProgress(progress, title = 'Beräknar packning') {
-      const requested = Math.max(0, Math.min(100, Math.round(Number(progress) || 0)));
-      const percent = lastLoadingProgress < 0 ? requested : Math.max(lastLoadingProgress, requested);
-      if (percent === lastLoadingProgress && els.loadingTitle.textContent === title) return;
+    function renderLoadingProgress(percent, title = null) {
+      const next = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+      const nextTitle = title ?? els.loadingTitle.textContent;
+      if (next === lastLoadingProgress && els.loadingTitle.textContent === nextTitle) return;
 
-      lastLoadingProgress = percent;
-      els.loadingTitle.textContent = title;
-      els.loadingPercent.textContent = `${percent}%`;
-      els.loadingBarFill.style.width = `${percent}%`;
-      els.loadingBarFill.parentElement?.setAttribute('aria-valuenow', String(percent));
+      lastLoadingProgress = next;
+      els.loadingTitle.textContent = nextTitle;
+      els.loadingPercent.textContent = `${next}%`;
+      els.loadingBarFill.style.width = `${next}%`;
+      els.loadingBarFill.parentElement?.setAttribute('aria-valuenow', String(next));
+    }
+
+    function setLoadingProgress(progress, title = 'Beräknar packning') {
+      const numericProgress = Math.max(0, Number(progress) || 0);
+      const requested = numericProgress >= 100 ? 100 : Math.min(99, Math.floor(numericProgress));
+      latestRealLoadingProgress = Math.max(latestRealLoadingProgress, requested);
+      const displayed = lastLoadingProgress < 0 ? 0 : lastLoadingProgress;
+      renderLoadingProgress(Math.max(displayed, latestRealLoadingProgress), title);
+    }
+
+    function stopLoadingDrip() {
+      if (loadingDripTimer !== null) {
+        clearInterval(loadingDripTimer);
+        loadingDripTimer = null;
+      }
+    }
+
+    function startLoadingDrip(token) {
+      stopLoadingDrip();
+      loadingDripTimer = window.setInterval(() => {
+        if (token !== loadingToken || els.loadingOverlay.hidden) {
+          stopLoadingDrip();
+          return;
+        }
+
+        const displayed = Math.max(0, lastLoadingProgress);
+        if (displayed >= 99) return;
+
+        const synthetic = Math.min(99, displayed + 1);
+        renderLoadingProgress(Math.max(synthetic, latestRealLoadingProgress));
+      }, 2000);
     }
 
     function showLoadingBar(title = 'Beräknar packning') {
       clearTimeout(hideLoadingTimer);
+      stopLoadingDrip();
       loadingToken++;
+      const token = loadingToken;
       loadingVisibleSince = performance.now();
+      latestRealLoadingProgress = 0;
       lastLoadingProgress = -1;
-      setLoadingProgress(0, title);
       els.loadingOverlay.hidden = false;
       els.container.classList.add('is-calculating');
-      return loadingToken;
+      renderLoadingProgress(0, title);
+      startLoadingDrip(token);
+      return token;
     }
 
     function hideLoadingBar(token = loadingToken, enforceMinimum = true) {
@@ -7928,6 +8111,7 @@
 
       hideLoadingTimer = window.setTimeout(() => {
         if (token !== loadingToken) return;
+        stopLoadingDrip();
         els.loadingOverlay.hidden = true;
         els.container.classList.remove('is-calculating');
       }, delay);
@@ -7936,8 +8120,10 @@
     function forceHideLoadingBar() {
       loadingToken++;
       clearTimeout(hideLoadingTimer);
+      stopLoadingDrip();
       els.loadingOverlay.hidden = true;
       els.container.classList.remove('is-calculating');
+      latestRealLoadingProgress = 0;
       lastLoadingProgress = -1;
     }
 
@@ -7954,7 +8140,7 @@
         .replace(/'/g, '&#039;');
     }
 
-    const PDF_TITLE = 'Eriks Packing Calculator Report';
+    const PDF_TITLE = 'Eriks Packing Plan';
     const PDF_LOCALE = 'en-US';
 
     function normalizePdfText(value) {
@@ -7990,7 +8176,33 @@
 
     function formatPdfFileTimestamp(date) {
       const pad = value => String(value).padStart(2, '0');
-      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}, ${pad(date.getHours())}-${pad(date.getMinutes())}`;
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}`;
+    }
+
+    function sanitizePdfFilenamePart(value) {
+      return String(value ?? '')
+        .replace(/'/g, 'ft')
+        .replace(/[^a-z0-9]+/gi, '-')
+        .replace(/^-+|-+$/g, '') || 'Unknown';
+    }
+
+    function buildPdfFileName(solution, date) {
+      const cargoPart = getCargoType() === 'cylinder' ? 'Cylinders' : 'Pallets';
+      const totalUnits = readActiveCargoRowDefinitions().reduce((sum, row) => sum + row.count, 0);
+      const counts = new Map();
+
+      (solution?.bins || []).forEach(bin => {
+        counts.set(bin.type, (counts.get(bin.type) || 0) + 1);
+      });
+
+      const preferredOrder = getContainerDisplayOrder(solution?.mode || getEquipmentMode());
+      const orderedTypes = [...new Set([...preferredOrder, ...counts.keys()])];
+      const equipmentPart = orderedTypes
+        .filter(type => counts.get(type))
+        .map(type => `${counts.get(type)}x${sanitizePdfFilenamePart(formatContainerType(type))}`)
+        .join('_') || 'No-Containers';
+
+      return `Eriks-Packing-Plan_${cargoPart}-${totalUnits}pcs_${equipmentPart}_${formatPdfFileTimestamp(date)}.pdf`;
     }
 
     function loadImageDataUrl(src) {
@@ -8164,15 +8376,6 @@
       return notes.join(' ');
     }
 
-    function getPdfCalculationLabel(algorithm) {
-      const labels = {
-        'Optimerad': 'Optimized',
-        'Snabb': 'Fast',
-        'Manuell': 'Manual'
-      };
-      return labels[String(algorithm || '')] || normalizePdfText(algorithm || '-');
-    }
-
     function getRequiredEquipmentForPdf(solution = lastRenderedSolution) {
       if (solution?.bins?.length) {
         return normalizePdfText(formatContainerCounts(solution.bins, solution.mode || getEquipmentMode()));
@@ -8196,8 +8399,6 @@
         [labels.totalLabel, `${totalUnits}`],
         ['Total volume', getTotalVolumeSummaryForPdf(rows)],
         ['Total weight', getWeightSummaryForPdf(rows)],
-        ['Max weight / container', `${formatPdfNumber(getMaxContainerWeight(), 1)} kg`],
-        ['Calculation', getPdfCalculationLabel(solution?.algorithm)],
         ['Limit', solution?.weightLimited ? 'Weight' : '-'],
         ['Equipment type', modeConfig.label],
         ['Stackable', els.stack.checked ? `Yes, ${getWantedLayers()} layer(s)` : 'No'],
@@ -9166,7 +9367,7 @@
       }
 
       if (!lastRenderedSolution || isPackingDirty()) {
-        throw new Error('Tryck Beräkna och invänta en uppdaterad packning innan PDF-export.');
+        throw new Error('En uppdaterad packning krävs före PDF-export.');
       }
 
       els.exportPdfBtn.disabled = true;
@@ -9191,7 +9392,6 @@
 
         const now = new Date();
         const timestamp = formatPdfDisplayTimestamp(now);
-        const fileStamp = formatPdfFileTimestamp(now);
         const pdfLogo = await loadPdfLogoImage();
         const doc = new JsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
         doc.setProperties?.({ title: PDF_TITLE, subject: PDF_TITLE });
@@ -9268,7 +9468,7 @@
           addPdfFooter(doc, i, pageCount);
         }
 
-        doc.save(`packing-report ${fileStamp}.pdf`);
+        doc.save(buildPdfFileName(exportSolution, now));
         els.importMsg.innerHTML = '<span class="success">PDF exporterad.</span>';
       } finally {
         restoreSceneAfterPdfExport(originalSolution, originalCameraState, originalManualSolution);
@@ -9372,13 +9572,14 @@
     }
 
     loadContainerDimensionSettings();
+    loadContainerTypeSelections();
     renderContainerSettingsInputs();
     addPalletRow({ count: 1 }, false);
     addCylinderRow({ count: 1 }, false);
     lastHandledPalletRowsSignature = getPalletRowsInputSignature();
     lastHandledCylinderRowsSignature = getCylinderRowsInputSignature();
     setCargoType('pallet', { markDirty: false });
-    showEmpty20Container('Ange gods och tryck Beräkna.');
+    showEmpty20Container('Ingen packning beräknad.');
     lastRenderedSolution = null;
     updateCalculateButtonState();
     animate();
