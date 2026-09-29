@@ -877,6 +877,47 @@
         border-bottom: 1px solid #212a4f;
       }
     }
+    /* v8.3: advanced controls, stable editor, accessible manifest. */
+    input[type="text"] { width:100%; padding:8px 10px; border:1px solid #2a3560; border-radius:6px; background:#0b1130; color:var(--text); font:inherit; min-width:0; }
+    .check-line { display:flex; align-items:center; gap:8px; margin:0; font-size:12px; text-transform:none; letter-spacing:0; color:var(--text); line-height:1.4; }
+    .check-line input { width:auto; margin:0; accent-color:var(--accent); flex-shrink:0; }
+    .advanced-options { padding:12px; border:1px solid #395785; border-radius:9px; background:#101b32; display:grid; gap:11px; }
+    .advanced-options h3 { margin:0; font-size:13px; color:#bfd6ff; }
+    .advanced-options pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:10px; background:#0b1020; padding:9px; border-radius:5px; margin:7px 0 0; }
+    .row-metadata { display:none; grid-column:1/-1; grid-template-columns:1.15fr 1fr; gap:8px; padding:4px 0 7px; border-bottom:1px solid #253252; }
+    body.is-advanced .row-metadata { display:grid; }
+    .row-metadata label { margin:0; font-size:9px; }
+    .row-metadata input, .row-metadata select { margin-top:3px; text-align:left; font-size:11px; padding:6px; }
+    .advanced-footer { margin-top:auto; position:sticky; bottom:-20px; padding:13px 0 8px; background:var(--panel); border-top:1px solid #2a3560; z-index:15; }
+    .advanced-footer kbd { margin-left:auto; font-family:inherit; font-size:10px; color:var(--sub); }
+    .calculation-settings { padding:13px; margin-bottom:16px; border-radius:10px; border:1px solid #2a3560; background:#0f1430; }
+    .calculation-settings h3 { margin:0 0 12px; font-size:14px; }
+    .calculation-settings input { max-width:140px; }
+    .result-actions { margin-top:-5px; display:grid; grid-template-columns:1fr 1fr; }
+    .manual-editor { position:absolute; top:15px; left:15px; width:300px; max-width:calc(100% - 30px); z-index:50; background:rgba(17,22,42,.97); border:1px solid #6aa6ff; border-radius:10px; padding:13px; box-shadow:0 8px 30px #0006; }
+    .manual-editor h3 { margin:0 25px 8px 0; font-size:12px; line-height:1.4; overflow-wrap:anywhere; }
+    .manual-editor .close-editor { position:absolute; top:6px; right:6px; }
+    .manual-editor .coordinates { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:8px 0; }
+    .manual-editor input, .manual-editor select { font-size:12px; padding:6px; }
+    .manual-editor .action-row { gap:5px; }
+    .manual-editor button { font-size:11px; padding:7px 8px; }
+    .manual-editor .note { font-size:10px; }
+    #canvas-container canvas { touch-action:none; }
+    .manifest-dialog { width:min(1260px,100%); }
+    .manifest-toolbar { display:flex; gap:12px; align-items:center; padding:12px 18px; border-bottom:1px solid #2a3560; }
+    .manifest-toolbar label { margin:0; }
+    .manifest-toolbar select { width:auto; min-width:150px; max-width:65%; }
+    .manifest-table-wrap { overflow:auto; padding:0 18px 18px; }
+    .manifest-table { border-collapse:collapse; width:100%; min-width:920px; font-size:12px; }
+    .manifest-table th { position:sticky; top:0; background:#17243e; text-align:left; padding:10px 8px; white-space:nowrap; z-index:1; }
+    .manifest-table td { border-bottom:1px solid #253252; padding:8px; max-width:230px; overflow-wrap:anywhere; }
+    .manifest-table tbody tr:nth-child(even) { background:#131e34; }
+    .cargo-haz { color:#ffb86b; font-weight:700; }
+    .cargo-general { color:#83d7af; }
+    .manifest-table button { padding:4px 7px; font-size:11px; }
+    .manifest-footnote { padding:0 18px 14px; margin:0; }
+    @media(max-width:800px) { .manual-editor { top:62px; width:260px; max-height:calc(100% - 120px); overflow:auto; } .advanced-footer { bottom:-20px; } }
+
   </style>
 </head>
 <body>
@@ -885,7 +926,7 @@
     <div class="app-heading">
       <div class="app-heading-copy">
         <h1>Eriks packningskalkylator</h1>
-        <div class="app-version">Extreme Point Heuristic // Version 8.2.1</div>
+        <div class="app-version">Extreme Point Heuristic // Version 8.3.1</div>
       </div>
       <button id="settingsBtn" class="settings-button" type="button" aria-haspopup="dialog" aria-controls="settingsModal">⚙ Inställningar</button>
     </div>
@@ -905,6 +946,28 @@
       <button id="calculateBtn" class="calculate-button" type="button">Beräkna</button>
       <div id="calculationState" class="note calculation-pending">Ej beräknad.</div>
     </div>
+
+    <section id="advancedOptions" class="advanced-options" hidden>
+      <h3>Orders &amp; godsklass</h3>
+      <label class="check-line"><input id="requireSeparateOrders" type="checkbox"><span>Kr&auml;v egna containers per order</span></label>
+      <label class="check-line"><input id="preferHazardous" type="checkbox" checked><span>Samla hazardous i s&aring; f&aring; containers som m&ouml;jligt</span></label>
+      <div class="note">Utan orderkrav f&aring;r orders blandas. Antal och containertyper prioriteras f&ouml;rst, d&auml;refter f&auml;rre hazardous-containers och mindre ordersplit.</div>
+      <div><label for="groupSeparator">Blockavskiljare i textimport</label>
+        <select id="groupSeparator"><option value="---">---</option><option value="===">===</option><option value="|||">|||</option><option value="custom">Egen avskiljare</option></select>
+        <input id="customSeparator" type="text" placeholder="Exempel: ###" maxlength="16" aria-label="Egen blockavskiljare" hidden>
+      </div>
+      <details><summary class="note">Visa format och exempel</summary>
+        <div class="note">Ny rad: avskiljare + orderref | general eller hazardous. Samma orderref kan &aring;terkomma med annan godsklass. Utan rubrik anv&auml;nds Order-001 / general. M&aring;tt i cm, eventuell vikt i kg.</div>
+        <pre>--- ORDER-A | general
+(120,80,100) (120,80,100,450)
+--- ORDER-B | hazardous
+(100,100,120,300)
+--- ORDER-B | general
+(80,60,100)</pre>
+        <div class="note">Pallar: (L,B,H[,vikt]). Cylindrar: (H,diameter[,vikt]). Semikolon och decimalcomma fungerar inom parenteser. En rad med kommaseparerade m&aring;tt fungerar ocks&aring;.</div>
+      </details>
+      <div class="note warning">Hazardous/general &auml;r en planeringsindelning. Inga regler f&ouml;r farligt gods, samlastning eller IMDG-segregering kontrolleras.</div>
+    </section>
 
     <div class="input-panel">
       <div id="palletPanel" class="cargo-panel">
@@ -1039,6 +1102,11 @@
       <button id="exportPdfBtn" class="primary-button" type="button">Exportera PDF</button>
     </div>
 
+    <div class="action-row result-actions">
+      <button id="showManifestBtn" class="secondary-button" type="button" disabled>Lastlista</button>
+      <button id="exportExcelBtn" class="secondary-button" type="button" disabled>Exportera Excel</button>
+    </div>
+    <div id="groupingSummary" class="note" aria-live="polite"></div>
     <div id="msgBox" class="note"></div>
 
     <div id="manualModeBox" class="manual-mode-box" hidden>
@@ -1048,16 +1116,26 @@
         <button id="autoPackBtn" class="primary-button" type="button">Räkna om automatiskt</button>
       </div>
     </div>
+    <div class="advanced-footer">
+      <label class="check-line"><input id="advancedMode" type="checkbox"><span>Advanced mode</span><kbd>Ctrl Alt A</kbd></label>
+      <div id="retainedRulesNote" class="note" hidden>Order- och godsregler beh&aring;lls &auml;ven i standardl&auml;get.</div>
+    </div>
   </div>
 
   <div id="settingsModal" class="settings-modal" hidden>
     <div class="settings-backdrop" data-settings-close></div>
     <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
       <div class="settings-header">
-        <h2 id="settingsTitle">Containerinställningar</h2>
+        <h2 id="settingsTitle">Inställningar</h2>
         <button id="settingsCloseIcon" class="settings-close-icon" type="button" aria-label="Stäng inställningar">×</button>
       </div>
       <div class="settings-content">
+        <section class="calculation-settings">
+          <h3>Ber&auml;kning</h3>
+          <label for="advancedTimeLimit">Tidsgr&auml;ns f&ouml;r avancerad s&ouml;kning (sekunder)</label>
+          <input id="advancedTimeLimit" type="number" value="12" min="1" max="300" step="1">
+          <div class="note">1&ndash;300 sekunder. B&auml;sta hittade l&ouml;sning beh&aring;lls n&auml;r tiden tar slut. Rendering och export ing&aring;r inte i s&ouml;ktiden.</div>
+        </section>
         <div id="containerSettingsGrid" class="container-settings-grid"></div>
       </div>
       <div class="settings-footer">
@@ -1069,6 +1147,26 @@
   </div>
 
   <div id="canvas-container">
+    <section id="manualEditor" class="manual-editor" aria-label="Manuell kolliredigering" hidden>
+      <button id="manualDeselectBtn" class="settings-close-icon close-editor" type="button" aria-label="Avmarkera">&times;</button>
+      <h3 id="selectedCargoLabel">V&auml;lj ett kolli</h3>
+      <label for="manualTarget">M&aring;lcontainer</label><select id="manualTarget"></select>
+      <div class="coordinates">
+        <div><label for="manualX">X &middot; cm</label><input id="manualX" type="number" step="0.1"></div>
+        <div><label for="manualY">Y &middot; cm</label><input id="manualY" type="number" step="0.1"></div>
+        <div><label for="manualZ">Z &middot; cm</label><input id="manualZ" type="number" min="0" step="0.1"></div>
+      </div>
+      <label class="check-line"><input id="manualSnap" type="checkbox" checked><span>Sn&auml;pp till 1 cm vid dragning</span></label>
+      <div class="action-row">
+        <button id="manualApplyBtn" class="primary-button" type="button">Flytta</button>
+        <button id="manualRotateBtn" class="secondary-button" type="button">Rotera 90&deg;</button>
+        <button id="manualUndoBtn" class="secondary-button" type="button">&Aring;ngra</button>
+        <button id="manualRedoBtn" class="secondary-button" type="button">G&ouml;r om</button>
+      </div>
+      <div id="manualFeedback" class="note" aria-live="polite">Klicka f&ouml;r att v&auml;lja. Dra f&ouml;r att flytta. Esc avbryter.</div>
+      <div class="note">X = l&auml;ngd, Y = bredd, Z = h&ouml;jd fr&aring;n golvet. Kollits nedre h&ouml;rn anges. Flytta &ouml;versta kollit f&ouml;rst vid stapling.</div>
+    </section>
+
     <div class="equipment-menu">
       <label for="equipmentMode">Containertyp</label>
       <select id="equipmentMode">
@@ -1096,6 +1194,16 @@
       <div id="cylinderLegend" hidden><span class="color-dot" style="background:#6aa6ff"></span><span>Cylinder</span></div>
       <div style="margin-top:4px"><span class="color-dot" style="background:#c28a55"></span><span id="dimensionLegendLabel">Dörrmått</span></div>
     </div>
+  </div>
+
+  <div id="manifestModal" class="settings-modal" hidden>
+    <div class="settings-backdrop" data-manifest-close></div>
+    <section class="settings-dialog manifest-dialog" role="dialog" aria-modal="true" aria-labelledby="manifestTitle">
+      <div class="settings-header"><h2 id="manifestTitle">Lastlista &middot; ett kolli per rad</h2><button id="manifestCloseBtn" class="settings-close-icon" aria-label="St&auml;ng lastlista" type="button">&times;</button></div>
+      <div class="manifest-toolbar"><label for="manifestFilter">Visa</label><select id="manifestFilter"><option value="all">Alla containers</option></select><button id="manifestExportBtn" class="primary-button" type="button">Exportera Excel</button></div>
+      <div class="manifest-table-wrap"><table class="manifest-table"><thead><tr><th>Kolli</th><th>Container</th><th>Equipment</th><th>Orderref</th><th>Godsklass</th><th>L &times; B &times; H (cm)</th><th>Vikt (kg)</th><th>X / Y / Z (cm)</th><th></th></tr></thead><tbody id="manifestBody"></tbody></table></div>
+      <p class="note manifest-footnote">Tom vikt betyder ok&auml;nd vikt. Ej placerade kollin redovisas separat. Godsklass &auml;r inte en kontroll av samlastningsregler.</p>
+    </section>
   </div>
 
   <script type="module">
@@ -1385,6 +1493,36 @@
     }
 
     const els = {
+      advancedMode: document.getElementById('advancedMode'),
+      advancedOptions: document.getElementById('advancedOptions'),
+      groupSeparator: document.getElementById('groupSeparator'),
+      customSeparator: document.getElementById('customSeparator'),
+      requireSeparateOrders: document.getElementById('requireSeparateOrders'),
+      preferHazardous: document.getElementById('preferHazardous'),
+      advancedTimeLimit: document.getElementById('advancedTimeLimit'),
+      showManifestBtn: document.getElementById('showManifestBtn'),
+      exportExcelBtn: document.getElementById('exportExcelBtn'),
+      manifestModal: document.getElementById('manifestModal'),
+      manifestCloseBtn: document.getElementById('manifestCloseBtn'),
+      manifestBody: document.getElementById('manifestBody'),
+      manifestFilter: document.getElementById('manifestFilter'),
+      groupingSummary: document.getElementById('groupingSummary'),
+      retainedRulesNote: document.getElementById('retainedRulesNote'),
+      manualEditor: document.getElementById('manualEditor'),
+      selectedCargoLabel: document.getElementById('selectedCargoLabel'),
+      manualTarget: document.getElementById('manualTarget'),
+      manualX: document.getElementById('manualX'),
+      manualY: document.getElementById('manualY'),
+      manualZ: document.getElementById('manualZ'),
+      manualApplyBtn: document.getElementById('manualApplyBtn'),
+      manualRotateBtn: document.getElementById('manualRotateBtn'),
+      manualUndoBtn: document.getElementById('manualUndoBtn'),
+      manualRedoBtn: document.getElementById('manualRedoBtn'),
+      manualDeselectBtn: document.getElementById('manualDeselectBtn'),
+      manualFeedback: document.getElementById('manualFeedback'),
+      manualSnap: document.getElementById('manualSnap'),
+      manifestExportBtn: document.getElementById('manifestExportBtn'),
+
       settingsBtn: document.getElementById('settingsBtn'),
       settingsModal: document.getElementById('settingsModal'),
       settingsCloseIcon: document.getElementById('settingsCloseIcon'),
@@ -1484,6 +1622,14 @@
     dirLight.position.set(500, 1000, 500);
     scene.add(dirLight);
 
+    let advancedMode = false;
+    let advancedTimeLimitSeconds = 12;
+    let groupingPreferenceSearch = false;
+    let selectedCargoId = null;
+    let exportInProgress = false;
+    const manualUndoStack = [];
+    const manualRedoStack = [];
+    const ADVANCED_SETTINGS_KEY = 'packing-calculator-advanced-settings-v8.3';
     let freeCam = false;
     let hasAutoFittedScene = false;
     let nextPalletRowId = 1;
@@ -1860,12 +2006,18 @@
 
     function updateCalculateButtonState() {
       const dirty = isPackingDirty();
-      const busy = calculationRunning || Boolean(activeCalculation);
+      const busy = calculationRunning || Boolean(activeCalculation) || exportInProgress;
       els.calculateBtn.disabled = busy || !dirty;
       els.calculateBtn.textContent = busy ? 'Beräknar...' : 'Beräkna';
       els.calculateBtn.setAttribute('aria-busy', busy ? 'true' : 'false');
       els.calculateBtn.classList.toggle('is-calculating', busy);
       els.exportPdfBtn.disabled = busy || dirty || lastCalculatedInputSignature === null || !lastRenderedSolution;
+      const exportDisabled = busy || dirty || Boolean(palletDragState) || lastCalculatedInputSignature === null || !lastRenderedSolution;
+      els.exportExcelBtn.disabled = exportDisabled;
+      els.showManifestBtn.disabled = exportDisabled;
+      els.manifestExportBtn.disabled = exportDisabled;
+      els.exportPdfBtn.disabled = exportDisabled;
+      els.retainedRulesNote.hidden = advancedMode || !hasCargoGrouping(readActiveCargoRowDefinitions());
       els.stats?.classList.toggle('is-stale', dirty && lastCalculatedInputSignature !== null);
       els.calculationState.classList.toggle('is-dirty', dirty);
       els.calculationState.classList.toggle('is-clean', !dirty);
@@ -1880,6 +2032,8 @@
         els.calculationState.textContent = 'Packningen är uppdaterad.';
       }
     }
+
+
 
     function handlePackingInputsChanged() {
       clearTimeout(updateDelayTimer);
@@ -1968,6 +2122,15 @@
     renderer.domElement.addEventListener('pointerdown', handlePalletPointerDown);
     renderer.domElement.addEventListener('pointerup', handlePalletPointerUp);
     renderer.domElement.addEventListener('pointercancel', handlePalletPointerCancel);
+    renderer.domElement.addEventListener('wheel', event => {
+      if (freeCam || calculationRunning || exportInProgress || palletDragState) return;
+      event.preventDefault();
+      // A wheel burst must not restart the animation before it becomes visible.
+      if (!els.toggleCamBtn.classList.contains('cam-lock-flash')) flashCameraLockedButton();
+    }, { passive: false });
+    renderer.domElement.addEventListener('contextmenu', event => {
+      if (!freeCam) event.preventDefault();
+    });
     els.container.addEventListener('pointerleave', handlePalletPointerLeave);
     els.rotatePalletBtn.addEventListener('pointerdown', event => {
       event.preventDefault();
@@ -2023,7 +2186,23 @@
     }
 
     function clearSceneGroup() {
-      while (mainGroup.children.length > 0) mainGroup.remove(mainGroup.children[0]);
+      const shared = new Set([...cargoGeometryCache.values(), ...cargoEdgesGeometryCache.values()]);
+      const geometries = new Set(), materials = new Set(), textures = new Set();
+      for (const child of [...mainGroup.children]) {
+        child.traverse(object => {
+          if (object.geometry && !shared.has(object.geometry)) geometries.add(object.geometry);
+          const mats = Array.isArray(object.material) ? object.material : [object.material];
+          for (const material of mats) {
+            if (!material) continue;
+            materials.add(material);
+            if (material.map) textures.add(material.map);
+          }
+        });
+        mainGroup.remove(child);
+      }
+      for (const geometry of geometries) geometry.dispose();
+      for (const material of materials) material.dispose();
+      for (const texture of textures) texture.dispose();
     }
 
     function createRowInput(field, value, placeholder, min = null, changeHandler = handlePalletRowsChanged) {
@@ -2089,6 +2268,7 @@
 
       return {
         rowId: rowEl.dataset.rowId,
+        ...readRowMetadata(rowEl),
         count,
         L,
         W,
@@ -2100,6 +2280,7 @@
         isValid: Number.isFinite(L) && Number.isFinite(W) && Number.isFinite(H) && L > 0 && W > 0 && H > 0
       };
     }
+
 
     function readCylinderRowElement(rowEl) {
       const countVal = rowEl.querySelector('[data-field="count"]')?.value;
@@ -2114,6 +2295,7 @@
 
       return {
         rowId: rowEl.dataset.rowId,
+        ...readRowMetadata(rowEl),
         count,
         D,
         L: D,
@@ -2126,6 +2308,7 @@
         isValid: Number.isFinite(D) && Number.isFinite(H) && D > 0 && H > 0
       };
     }
+
 
     function setPalletRowFieldValue(rowEl, field, value) {
       const input = rowEl.querySelector(`[data-field="${field}"]`);
@@ -2182,6 +2365,7 @@
       row.appendChild(weightInput);
       row.appendChild(lockRotationInput);
       row.appendChild(removeButton);
+      addRowMetadataInputs(row, data, handlePalletRowsChanged);
 
       if (insertAfterEl?.parentNode === els.palletRows) {
         els.palletRows.insertBefore(row, insertAfterEl.nextSibling);
@@ -2192,6 +2376,7 @@
       if (shouldUpdate) handlePalletRowsChanged();
       return row;
     }
+
 
     function addCylinderRow(data = {}, shouldUpdate = true) {
       const row = document.createElement('div');
@@ -2219,11 +2404,13 @@
       row.appendChild(diameterInput);
       row.appendChild(weightInput);
       row.appendChild(removeButton);
+      addRowMetadataInputs(row, data, handleCylinderRowsChanged);
       els.cylinderRows.appendChild(row);
 
       if (shouldUpdate) handleCylinderRowsChanged();
       return row;
     }
+
 
     function clearPalletRows() {
       while (els.palletRows.firstChild) els.palletRows.removeChild(els.palletRows.firstChild);
@@ -2241,6 +2428,8 @@
         if (!rowData.isValid) return;
         rows.push({
           rowId: rowData.rowId,
+          orderRef: rowData.orderRef,
+          cargoClass: rowData.cargoClass,
           rowIndex,
           count: rowData.count,
           L: rowData.L,
@@ -2256,6 +2445,7 @@
       return rows;
     }
 
+
     function readCylinderRowDefinitions() {
       const rows = [];
 
@@ -2264,6 +2454,8 @@
         if (!rowData.isValid) return;
         rows.push({
           rowId: rowData.rowId,
+          orderRef: rowData.orderRef,
+          cargoClass: rowData.cargoClass,
           rowIndex,
           count: rowData.count,
           D: rowData.D,
@@ -2280,6 +2472,7 @@
       return rows;
     }
 
+
     function readActiveCargoRowDefinitions() {
       return getCargoType() === 'cylinder' ? readCylinderRowDefinitions() : readPalletRowDefinitions();
     }
@@ -2292,6 +2485,8 @@
         for (let i = 0; i < row.count; i++) {
           pallets.push({
             id: nextId++,
+            orderRef: normalizeOrderRef(row.orderRef),
+            cargoClass: normalizeCargoClass(row.cargoClass),
             L: row.L,
             W: row.W,
             H: row.H,
@@ -2309,6 +2504,7 @@
       return pallets;
     }
 
+
     function buildCylindersFromRowDefinitions(rowDefinitions) {
       const cylinders = [];
       let nextId = 1;
@@ -2317,6 +2513,8 @@
         for (let i = 0; i < row.count; i++) {
           cylinders.push({
             id: nextId++,
+            orderRef: normalizeOrderRef(row.orderRef),
+            cargoClass: normalizeCargoClass(row.cargoClass),
             D: row.D,
             L: row.D,
             W: row.D,
@@ -2334,6 +2532,7 @@
 
       return cylinders;
     }
+
 
     function buildActiveCargoUnits(rowDefinitions) {
       return getCargoType() === 'cylinder'
@@ -2420,11 +2619,13 @@
       for (const row of rows) {
         const weightKey = row.weight === '' ? '' : String(row.weight);
         const lockKey = row.lockRotation ? '1' : '0';
-        const key = `${row.L}|${row.W}|${row.H}|${weightKey}|${lockKey}`;
+        const key = JSON.stringify([row.L, row.W, row.H, weightKey, lockKey, normalizeOrderRef(row.orderRef), normalizeCargoClass(row.cargoClass)]);
 
         if (!map.has(key)) {
           map.set(key, {
             count: 0,
+            orderRef: normalizeOrderRef(row.orderRef),
+            cargoClass: normalizeCargoClass(row.cargoClass),
             L: row.L,
             W: row.W,
             H: row.H,
@@ -2441,16 +2642,20 @@
       return [...map.values()];
     }
 
+
+
     function compressCylinderRowDefinitions(rows) {
       const map = new Map();
 
       for (const row of rows) {
         const weightKey = row.weight === '' ? '' : String(row.weight);
-        const key = `${row.H}|${row.D}|${weightKey}`;
+        const key = JSON.stringify([row.H, row.D, weightKey, normalizeOrderRef(row.orderRef), normalizeCargoClass(row.cargoClass)]);
 
         if (!map.has(key)) {
           map.set(key, {
             count: 0,
+            orderRef: normalizeOrderRef(row.orderRef),
+            cargoClass: normalizeCargoClass(row.cargoClass),
             H: row.H,
             D: row.D,
             L: row.D,
@@ -2468,40 +2673,16 @@
       return [...map.values()];
     }
 
-    function importTextToRows() {
-      const parsed = compressPalletRowDefinitions(parseImportedPalletRows(els.palletImport.value));
-
-      if (!parsed.length) {
-        els.importMsg.innerHTML = '<span class="warning">Inga giltiga pallrader hittades.</span>';
-        return;
-      }
-
-      clearPalletRows();
-      parsed.forEach(row => addPalletRow(row, false));
-
-      const totalCount = parsed.reduce((sum, row) => sum + row.count, 0);
-      els.importMsg.innerHTML = `<span class="success">Importerade ${totalCount} ${getCargoNoun(totalCount, false, 'pallet')} till ${parsed.length} rad(er).</span>`;
-      handlePalletRowsChanged();
-    }
-
-    function importTextToCylinderRows() {
-      const parsed = compressCylinderRowDefinitions(parseImportedCylinderRows(els.cylinderImport.value));
-
-      if (!parsed.length) {
-        els.importMsg.innerHTML = '<span class="warning">Inga giltiga cylinderrader hittades.</span>';
-        return;
-      }
-
-      clearCylinderRows();
-      parsed.forEach(row => addCylinderRow(row, false));
-
-      const totalCount = parsed.reduce((sum, row) => sum + row.count, 0);
-      els.importMsg.innerHTML = `<span class="success">Importerade ${totalCount} ${getCargoNoun(totalCount, false, 'cylinder')} till ${parsed.length} rad(er).</span>`;
-      handleCylinderRowsChanged();
-    }
 
 
-    const CSV_COLUMNS = ['cargo_type', 'equipment_mode', 'stackable', 'layers', 'max_weight_kg', 'count', 'length_cm', 'width_cm', 'height_cm', 'diameter_cm', 'weight_kg', 'lock_rotation'];
+    function importTextToRows() { importCargoText('pallet'); }
+
+
+    function importTextToCylinderRows() { importCargoText('cylinder'); }
+
+
+
+    const CSV_COLUMNS = ['cargo_type', 'equipment_mode', 'stackable', 'layers', 'max_weight_kg', 'count', 'length_cm', 'width_cm', 'height_cm', 'diameter_cm', 'weight_kg', 'lock_rotation', 'order_ref', 'cargo_class', 'separate_orders', 'prefer_hazardous', 'advanced_time_limit_s', 'csv_text_encoding'];
 
     function escapeCsvValue(value) {
       const text = String(value ?? '');
@@ -2535,7 +2716,9 @@
           row.H,
           cylinderMode ? row.D : '',
           row.weight === '' ? '' : row.weight,
-          cylinderMode ? '1' : (row.lockRotation ? '1' : '0')
+          cylinderMode ? '1' : (row.lockRotation ? '1' : '0'),
+          encodeCsvOrderRef(row.orderRef), row.cargoClass, els.requireSeparateOrders.checked ? '1' : '0',
+          els.preferHazardous.checked ? '1' : '0', advancedTimeLimitSeconds, 'apostrophe-v1'
         ]);
       });
 
@@ -2556,6 +2739,7 @@
         ? '<span class="success">CSV exporterad.</span>'
         : `<span class="warning">Inga giltiga ${getCargoNoun(2)} att exportera.</span>`;
     }
+
 
     function detectCsvDelimiter(text) {
       const firstLine = text.split(/\r?\n/).find(line => line.trim()) || '';
@@ -2620,6 +2804,9 @@
         .replace(/^_+|_+$/g, '');
 
       const aliases = {
+        order: 'order_ref', orderref: 'order_ref', order_ref: 'order_ref',
+        orderreferens: 'order_ref', classification: 'cargo_class', godsklass: 'cargo_class',
+        hazardous: 'cargo_class', dg: 'cargo_class',
         cargo: 'cargo_type',
         cargo_type: 'cargo_type',
         cargo_mode: 'cargo_type',
@@ -2684,6 +2871,7 @@
       return aliases[normalized] || normalized;
     }
 
+
     function parseCsvNumber(value) {
       return parseFlexibleNumber(value);
     }
@@ -2736,6 +2924,9 @@
       let importedStackable = null;
       let importedLayers = null;
       let importedMaxWeight = null;
+      let importedSeparateOrders = null;
+      let importedPreferHazardous = null;
+      let importedTimeLimit = null;
 
       rows.slice(1).forEach(row => {
         const read = field => {
@@ -2743,6 +2934,13 @@
           return idx === -1 ? '' : row[idx];
         };
 
+        const separateValue = read('separate_orders');
+        if (importedSeparateOrders === null && String(separateValue).trim()) importedSeparateOrders = parseCsvBoolean(separateValue);
+        const preferValue = read('prefer_hazardous');
+        if (importedPreferHazardous === null && String(preferValue).trim()) importedPreferHazardous = parseCsvBoolean(preferValue);
+        const timeValue = Number(read('advanced_time_limit_s'));
+        if (importedTimeLimit === null && timeValue >= 1 && timeValue <= 300) importedTimeLimit = timeValue;
+        const metadata = { orderRef: normalizeOrderRef(decodeCsvOrderRef(read('order_ref'), read('csv_text_encoding'))), cargoClass: normalizeCargoClass(read('cargo_class')) };
         const modeValue = normalizeEquipmentModeValue(read('equipment_mode'));
         if (!importedMode && modeValue) importedMode = modeValue;
 
@@ -2773,6 +2971,7 @@
             : (Number.isFinite(L) && L > 0 ? L : W);
           if (Number.isFinite(D) && Number.isFinite(H) && D > 0 && H > 0) {
             importedRows.push({
+              ...metadata,
               cargoType,
               count,
               D,
@@ -2791,6 +2990,7 @@
         const lockRotation = String(lockRaw).trim() === '' ? false : parseCsvBoolean(lockRaw);
         if (Number.isFinite(L) && Number.isFinite(W) && Number.isFinite(H) && L > 0 && W > 0 && H > 0) {
           importedRows.push({
+              ...metadata,
             cargoType,
             count,
             L,
@@ -2824,6 +3024,10 @@
       if (importedLayers !== null) els.layers.value = importedLayers;
       if (importedMaxWeight !== null) els.maxContainerWeight.value = importedMaxWeight;
 
+      if (importedSeparateOrders !== null) els.requireSeparateOrders.checked = importedSeparateOrders;
+      if (importedPreferHazardous !== null) els.preferHazardous.checked = importedPreferHazardous;
+      if (importedTimeLimit !== null) setAdvancedTimeLimit(importedTimeLimit, false);
+      if (importedRows.some(row => row.orderRef !== 'Order-001' || row.cargoClass === 'hazardous') || importedSeparateOrders) setAdvancedMode(true, false);
       setCargoType(importedCargoType, { markDirty: false });
       if (importedCargoType === 'cylinder') {
         clearCylinderRows();
@@ -2838,6 +3042,10 @@
       markPackingInputsChanged();
     }
 
+
+
+
+
     function importConfigurationCsvFile() {
       const file = els.csvFileInput.files?.[0];
       if (!file) return;
@@ -2845,7 +3053,7 @@
       const reader = new FileReader();
 
       reader.onload = () => {
-        importConfigurationCsvText(String(reader.result || ''));
+        try { importConfigurationCsvText(String(reader.result || '')); } catch (error) { els.importMsg.innerHTML = `<span class="warning">${escapeHtml(error.message)}</span>`; }
       };
 
       reader.onerror = () => {
@@ -3183,6 +3391,8 @@
         const D = shape === 'cylinder' ? Number(p.D ?? p.L) : undefined;
         const item = {
           baseId: p.id ? `imp-${p.id}` : `item-${idx + 1}`,
+          orderRef: normalizeOrderRef(p.orderRef),
+          cargoClass: normalizeCargoClass(p.cargoClass),
           L: shape === 'cylinder' ? D : p.L,
           W: shape === 'cylinder' ? D : p.W,
           H: p.H,
@@ -3200,6 +3410,7 @@
         return item;
       });
     }
+
 
     function buildSingleItems(pL, pW, pH, count, options = {}) {
       const items = [];
@@ -3289,6 +3500,7 @@
         orders.push(arr);
       }
 
+      if (groupingPreferenceSearch) orders.unshift(...buildGroupedItemOrders(items));
       const unique = [];
       const seen = new Set();
       for (const order of orders) {
@@ -3300,6 +3512,7 @@
 
       return unique;
     }
+
 
     // -------------------------------
     // RIKTIG 3D PACKNING
@@ -3337,6 +3550,7 @@
 
     function cloneSolution(solution) {
       return {
+        ...solution,
         type: solution.type,
         mode: solution.mode,
         cargoType: solution.cargoType || getCargoType(),
@@ -3346,6 +3560,7 @@
         weightLimited: Boolean(solution.weightLimited)
       };
     }
+
 
     function binVolume(bin) {
       return bin.box.L * bin.box.W * bin.box.H;
@@ -3804,6 +4019,7 @@
     }
 
     function canPlaceInBin(bin, item, x, y, z, L, W, wantedLayers, options = {}) {
+      if (!canShareOrderInBin(bin, item, options)) return null;
       const box = bin.box;
       const heightLimit = getContainerHeightLimit(box);
       const overWidth = isFlatRackOverWidth(box, W);
@@ -3846,6 +4062,7 @@
       return { support, layer, overWidth };
     }
 
+
     function getPlacementYEdgeMetrics(box, placement) {
       if (isFlatRackOverWidth(box, placement.W)) {
         return { edgeDistance: 0, edgeBias: 0 };
@@ -3875,6 +4092,13 @@
       const overWidthPenalty = placementExceedsNominalWidth(placement, bin.box) ? 1 : 0;
       const { edgeDistance, edgeBias } = getPlacementYEdgeMetrics(bin.box, placement);
 
+      if (heuristic === 'ROW') {
+        const extent = Math.max(placement.x + placement.L, ...bin.placements.map(p => p.x + p.L));
+        const peer = bin.placements.find(p => !isCylinder(p) &&
+          Math.abs(p.item.L - placement.item.L) < EPS && Math.abs(p.item.W - placement.item.W) < EPS);
+        const rotationChange = peer && peer.kind !== placement.kind ? 1 : 0;
+        return [overWidthPenalty, placement.z, extent, rotationChange, placement.x, placement.y, -contact];
+      }
       if (heuristic === 'BLF') {
         return [overWidthPenalty, placement.z, placement.x, edgeDistance, edgeBias, remY, remX, remZ, -contact];
       }
@@ -3895,6 +4119,7 @@
     }
 
     function findBestPlacementInBin(bin, item, wantedLayers, heuristic, placementOptions = {}) {
+      if (!canShareOrderInBin(bin, item, placementOptions)) return null;
       let best = null;
       const calculation = placementOptions.calculation || null;
       const maxCylinderCandidatePoints = placementOptions.maxCylinderCandidatePoints
@@ -3907,7 +4132,11 @@
           })
         : generateCandidatePoints(bin);
 
-      const orientations = getItemOrientations(item);
+      let orientations = getItemOrientations(item);
+      if (placementOptions.orientationPolicy && !item.lockRotation && !isCylinder(item)) {
+        const preferred = orientations.filter(o => placementOptions.orientationPolicy === 'long' ? o.L >= o.W : o.L <= o.W);
+        if (preferred.length) orientations = preferred;
+      }
 
       for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
         if ((pointIndex & 63) === 0) checkCalculation(calculation);
@@ -3955,6 +4184,7 @@
       return best;
     }
 
+
     function placePlacementInBin(bin, placement) {
       placement.isOverWidth = placementExceedsNominalWidth(placement, bin.box);
       bin.placements.push(placement);
@@ -3974,6 +4204,12 @@
 
     function betterCandidate(a, b, bins) {
       if (!b) return true;
+      if (groupingPreferenceSearch) {
+        const ga = placementGroupingScore(bins[a.binIndex], a.placement.item);
+        const gb = placementGroupingScore(bins[b.binIndex], b.placement.item);
+        if (lexicographicallyBetter(ga, gb)) return true;
+        if (lexicographicallyBetter(gb, ga)) return false;
+      }
       if (lexicographicallyBetter(a.score, b.score)) return true;
       if (lexicographicallyBetter(b.score, a.score)) return false;
 
@@ -3983,6 +4219,7 @@
       if (fillA !== fillB) return fillA > fillB;
       return a.binIndex < b.binIndex;
     }
+
 
     class CalculationCancelledError extends Error {
       constructor() {
@@ -4044,7 +4281,7 @@
         let best = null;
 
         for (let i = 0; i < bins.length; i++) {
-          const found = findBestPlacementInBin(bins[i], item, wantedLayers, heuristic, { ignoreWeight, calculation, maxCylinderCandidatePoints });
+          const found = findBestPlacementInBin(bins[i], item, wantedLayers, heuristic, { ignoreWeight, calculation, maxCylinderCandidatePoints, orientationPolicy: options.orientationPolicy });
 
           if (found) {
             const cand = {
@@ -4065,7 +4302,7 @@
           if (!ignoreWeight && itemHasKnownWeight(item)) {
             for (const bin of bins) {
               if (canBinAcceptItemWeight(bin, item)) continue;
-              if (findBestPlacementInBin(bin, item, wantedLayers, heuristic, { ignoreWeight: true, calculation, maxCylinderCandidatePoints })) {
+              if (findBestPlacementInBin(bin, item, wantedLayers, heuristic, { ignoreWeight: true, calculation, maxCylinderCandidatePoints, orientationPolicy: options.orientationPolicy })) {
                 blockedByWeight = true;
                 break;
               }
@@ -4076,7 +4313,7 @@
 
           if (allowOpenNewBins) {
             const newBin = createEmptyBin(type);
-            const found = findBestPlacementInBin(newBin, item, wantedLayers, heuristic, { ignoreWeight, calculation, maxCylinderCandidatePoints });
+            const found = findBestPlacementInBin(newBin, item, wantedLayers, heuristic, { ignoreWeight, calculation, maxCylinderCandidatePoints, orientationPolicy: options.orientationPolicy });
 
             if (found) {
               newBin.openedByWeight = blockedByWeight;
@@ -4102,8 +4339,11 @@
         }
       }
 
-      return { bins, unplaced, type, mode: getEquipmentMode(), weightLimited };
+      const result = { bins, unplaced, type, mode: getEquipmentMode(), weightLimited };
+      if (calculation?.onFullCandidate) calculation.onFullCandidate(result);
+      return result;
     }
+
 
     function binWidthWarningCount(bin) {
       return bin.placements.filter(p => placementExceedsNominalWidth(p, bin.box)).length;
@@ -4168,6 +4408,13 @@
       const widthOverflowB = solutionWidthOverflowAmount(b);
       if (Math.abs(widthOverflowA - widthOverflowB) > EPS) return widthOverflowA < widthOverflowB;
 
+      if (equipmentSignature(a) === equipmentSignature(b)) {
+        const ga = solutionGroupingScore(a);
+        const gb = solutionGroupingScore(b);
+        if (lexicographicallyBetter(ga, gb)) return true;
+        if (lexicographicallyBetter(gb, ga)) return false;
+      }
+
       const fillsA = solutionFillVector(a);
       const fillsB = solutionFillVector(b);
       const len = Math.max(fillsA.length, fillsB.length);
@@ -4178,8 +4425,11 @@
         if (av !== bv) return av > bv;
       }
 
-      return solutionSpreadMetric(a) > solutionSpreadMetric(b);
+      const spreadA = solutionSpreadMetric(a), spreadB = solutionSpreadMetric(b);
+      if (Math.abs(spreadA - spreadB) > EPS) return spreadA > spreadB;
+      return layoutScoreBetter(solutionLayoutScore(a), solutionLayoutScore(b));
     }
+
 
     function cloneSingleContainerPlan(plan) {
       if (!plan) return plan;
@@ -4192,7 +4442,7 @@
 
     function getSingleContainerPlanCacheKey(type, items, wantedLayers, extraRandomOrders, options = {}) {
       const itemKey = items.map(item => (
-        `${item.baseId}:${item.shape || 'box'}:${item.L}:${item.W}:${item.H}:${item.D ?? ''}:${item.weight ?? ''}:${item.lockRotation ? 1 : 0}`
+        `${item.baseId}:${item.shape || 'box'}:${item.L}:${item.W}:${item.H}:${item.D ?? ''}:${item.weight ?? ''}:${item.lockRotation ? 1 : 0}:${JSON.stringify([item.orderRef || '',item.cargoClass || ''])}`
       )).join('|');
       const tuningKey = [
         options.randomOrders ?? '',
@@ -4200,7 +4450,7 @@
         Array.isArray(options.heuristics) ? options.heuristics.join(',') : '',
         options.maxCylinderCandidatePoints ?? ''
       ].join(':');
-      return `${type}|${getEquipmentMode()}|${getContainerDimensionsSignature(type)}|${wantedLayers}|${extraRandomOrders}|${options.ignoreWeight ? 1 : 0}|${options.identicalItems ? 1 : 0}|${getMaxContainerWeight()}|${tuningKey}|${itemKey}`;
+      return `${els.requireSeparateOrders.checked ? 1 : 0}:${els.preferHazardous.checked ? 1 : 0}:${groupingPreferenceSearch ? 1 : 0}|${type}|${getEquipmentMode()}|${getContainerDimensionsSignature(type)}|${wantedLayers}|${extraRandomOrders}|${options.ignoreWeight ? 1 : 0}|${options.identicalItems ? 1 : 0}|${getMaxContainerWeight()}|${tuningKey}|${itemKey}`;
     }
 
     async function bestSingleContainerPlan3D(type, items, wantedLayers, extraRandomOrders = 8, options = {}) {
@@ -6144,14 +6394,11 @@
 
     function createCargoGeometry(value) {
       if (isCylinder(value)) {
-        const radius = Math.max(1, getCylinderRadius(value) - 1);
-        return new THREE.CylinderGeometry(radius, radius, Math.max(value.H - 2, 2), 32, 1, false);
+        const radius = Math.max(EPS, getCylinderRadius(value));
+        return new THREE.CylinderGeometry(radius, radius, Math.max(value.H, EPS), 32, 1, false);
       }
-
       return new THREE.BoxGeometry(
-        Math.max(value.L - 2, 2),
-        Math.max(value.H - 2, 2),
-        Math.max(value.W - 2, 2)
+        Math.max(value.L, EPS), Math.max(value.H, EPS), Math.max(value.W, EPS)
       );
     }
 
@@ -6183,7 +6430,7 @@
       group.position.z = startZ;
       mainGroup.add(group);
 
-      const label = createTextLabel('Ej placerade', '#ffb86b', 190, 24);
+      const label = createTextLabel(exportInProgress ? 'Unassigned cargo' : 'Ej placerade', '#ffb86b', 190, 24);
       label.position.set(-layout.plateL / 2, 58, -layout.plateW / 2);
       group.add(label);
 
@@ -6379,7 +6626,7 @@
         exportPanelView = '3d'
       } = options;
 
-      solution = centerFlatRackSolutionPlacementsAlongLength(cloneSolution(solution));
+      solution = solution.manualEdited ? cloneSolution(solution) : centerFlatRackSolutionPlacementsAlongLength(cloneSolution(solution));
       const pdfTextScale = showExportBackPanels ? PDF_EXPORT_TEXT_SCALE : 1;
       const dimensionLabelOptions = showExportBackPanels
         ? {
@@ -6423,7 +6670,7 @@
       let currentZ = 0;
       const GAP = 250;
 
-      solution.bins.forEach(bin => {
+      solution.bins.forEach((bin, binIndex) => {
         const box = bin.box;
 
         const group = new THREE.Group();
@@ -6436,7 +6683,7 @@
         }
 
         if (showLabels) {
-          const labelBase = `${formatContainerType(bin.type)}${bin.visualOnly ? ' - height warning' : ''}`;
+          const labelBase = `${showExportBackPanels ? '' : `${binIndex + 1} · `}${formatContainerType(bin.type)}${bin.visualOnly ? ' - height warning' : ''}`;
           const labelText = showExportBackPanels ? labelBase : `${labelBase} (${box.L} x ${box.W} x ${box.H} cm)`;
           const labelScaleX = showExportBackPanels ? (Math.min(660, Math.max(500, box.L * 0.44)) * pdfTextScale) : 350;
           const labelScaleY = showExportBackPanels ? (58 * pdfTextScale) : 45;
@@ -6518,13 +6765,18 @@
           mesh.add(e);
         });
 
+        matA.dispose(); matB.dispose(); matCylinder.dispose();
         currentZ += box.W + GAP;
       });
 
       if (includeUnplaced && solution.unplaced?.length) {
         addUnplacedPalletPlate(currentZ, solution.unplaced, solution);
       }
+      if (interactive && !exportInProgress) { updateGroupingSummary(solution); updateManualEditor(); }
     }
+
+
+
 
     function getPointerNdcFromEvent(event) {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -6569,6 +6821,7 @@
     }
 
     function setCameraUnlocked(unlocked) {
+      cancelSafeDrag();
       freeCam = Boolean(unlocked);
       hideRotatePalletButton();
       resetPalletPointerDownState();
@@ -6584,6 +6837,7 @@
       }
 
       updateCameraToggleUi();
+      if (!freeCam) flashCameraLockedButton();
     }
 
     function isCameraInteractionMode() {
@@ -6647,11 +6901,8 @@
       els.rotatePalletBtn.style.top = `${top}px`;
     }
 
-    function updateRotateButtonPosition() {
-      const hit = hoveredPalletHit || els.rotatePalletBtn?._palletHit;
-      if (!hit || els.rotatePalletBtn.hidden) return;
-      placeRotateButtonAtPalletCenter(hit);
-    }
+    function updateRotateButtonPosition() {}
+
 
     function clearPalletHoverHighlight() {
       interactivePalletMeshes.forEach(mesh => {
@@ -6667,27 +6918,11 @@
     }
 
     function showRotatePalletButton(hit) {
-      hoveredPalletHit = hit;
-      clearPalletHoverHighlight();
-
-      if (hit?.mesh?.material?.color?.setHex) {
-        hit.mesh.material.color.setHex(PALLET_HOVER_COLOR);
-      }
-
-      if (isCylinder(hit?.placement || hit?.item)) {
-        els.rotatePalletBtn.hidden = true;
-        els.rotatePalletBtn.classList.remove('is-visible');
-        els.rotatePalletBtn._palletHit = null;
-        renderer.domElement.style.cursor = 'grab';
-        return;
-      }
-
-      els.rotatePalletBtn._palletHit = hit;
-      els.rotatePalletBtn.hidden = false;
-      els.rotatePalletBtn.classList.add('is-visible');
-      placeRotateButtonAtPalletCenter(hit);
-      renderer.domElement.style.cursor = 'pointer';
+      // v8.3 uses a pinned selection editor, never a moving hover button.
+      els.rotatePalletBtn.hidden = true;
+      els.rotatePalletBtn.classList.remove('is-visible');
     }
+
 
     function hideRotatePalletButton() {
       hoveredPalletHit = null;
@@ -6743,147 +6978,67 @@
     }
 
     function handlePalletPointerMove(event) {
-      if (isCameraInteractionMode() && !palletDragState) {
-        resetPalletPointerDownState(event);
-        hideRotatePalletButton();
+      if (palletDragState?.pointerId === event.pointerId) { queueSafeDrag(event); return; }
+      if (!canEditManually() || isCameraInteractionMode()) return;
+      if (palletPointerDownHit && !palletPointerDownCancelled && event.pointerId === palletPointerDownPointerId) {
+        if (Math.hypot(event.clientX-palletPointerDownClientX, event.clientY-palletPointerDownClientY) >= DRAG_START_DISTANCE_PX) { beginSafeDrag(event); if (palletDragState) updateSafeDrag(event); }
         return;
       }
-
-      if (palletDragState && event.pointerId === palletDragState.pointerId) {
-        updateManualPalletDrag(event);
-        return;
-      }
-
-      if (palletPointerDownHit && event.pointerId === palletPointerDownPointerId) {
-        const moveDistance = Math.hypot(
-          event.clientX - palletPointerDownClientX,
-          event.clientY - palletPointerDownClientY
-        );
-
-        if (moveDistance >= DRAG_START_DISTANCE_PX) {
-          beginManualPalletDrag(event);
-          if (palletDragState) {
-            updateManualPalletDrag(event);
-            return;
-          }
-        }
-
-        const hit = getPalletHitFromPointerEvent(event);
-        if (!hit || !isSamePalletHit(palletPointerDownHit, hit)) {
-          cancelPalletPointerDown();
-          hideRotatePalletButton();
-          return;
-        }
-
-        showRotatePalletButton(hit);
-        return;
-      }
-
-      const hit = getPalletHitFromPointerEvent(event);
-
-      if (!hit) {
-        hideRotatePalletButton();
-        return;
-      }
-
-      showRotatePalletButton(hit);
+      renderer.domElement.style.cursor = getPalletHitFromPointerEvent(event) ? 'grab' : '';
     }
 
+
     function handlePalletPointerDown(event) {
-      if (event.button !== undefined && event.button !== 0) return;
-
-      if (isCameraInteractionMode()) {
-        resetPalletPointerDownState(event);
-        hideRotatePalletButton();
+      if (isCameraInteractionMode() || calculationRunning || exportInProgress) return;
+      if (event.button !== undefined && event.button !== 0) {
+        flashCameraLockedButton();
         return;
       }
-
+      if (!canEditManually()) {
+        flashCameraLockedButton();
+        event.preventDefault();
+        return;
+      }
       const hit = getPalletHitFromPointerEvent(event);
-
       if (!hit) {
-        if (!pointerIsOverContainerFootprint(event)) {
-          flashCameraLockedButton();
-        }
-
-        resetPalletPointerDownState(event);
-        hideRotatePalletButton();
+        selectedCargoId = null;
+        updateManualEditor();
+        flashCameraLockedButton();
         return;
       }
-
-      palletPointerDownHit = hit;
-      palletPointerDownPointerId = event.pointerId;
+      selectedCargoId = hit.placement.baseId;
+      palletPointerDownHit = hit; palletPointerDownPointerId = event.pointerId;
       palletPointerDownCancelled = false;
-      palletPointerDownClientX = event.clientX;
-      palletPointerDownClientY = event.clientY;
+      palletPointerDownClientX = event.clientX; palletPointerDownClientY = event.clientY;
       renderer.domElement.setPointerCapture?.(event.pointerId);
-      showRotatePalletButton(hit);
+      updateManualEditor();
+      manualFeedback('Dra f\u00f6r att flytta, eller ange koordinater. R roterar. Esc avbryter.', true);
       event.preventDefault();
     }
 
     function handlePalletPointerUp(event) {
-      if (freeCam && !palletDragState) {
+      if (palletDragState?.pointerId === event.pointerId) {
+        updateSafeDrag(event);
+        const state = stopSafeDragPreview();
         resetPalletPointerDownState(event);
-        hideRotatePalletButton();
-        return;
+        if (state.currentDrop) commitSafePlacement(state.hit, state.currentDrop.bin, state.currentDrop.placement);
+        else manualFeedback('Ingen flytt gjordes. Ursprungsplaceringen beh\u00f6lls.');
+        updateCalculateButtonState(); return;
       }
-
-      if (palletDragState && event.pointerId === palletDragState.pointerId) {
-        finishManualPalletDrag(event, false);
-        resetPalletPointerDownState(event);
-        return;
-      }
-
-      if (!palletPointerDownHit || event.pointerId !== palletPointerDownPointerId) return;
-
-      const startHit = palletPointerDownHit;
-      const wasCancelled = palletPointerDownCancelled;
-      const endHit = getPalletHitFromPointerEvent(event);
-      resetPalletPointerDownState(event);
-
-      if (!wasCancelled && isSamePalletHit(startHit, endHit)) {
-        showRotatePalletButton(endHit);
-        return;
-      }
-
-      if (endHit) {
-        showRotatePalletButton(endHit);
-      } else {
-        hideRotatePalletButton();
-      }
+      if (event.pointerId === palletPointerDownPointerId) resetPalletPointerDownState(event);
     }
+
 
     function handlePalletPointerCancel(event) {
-      if (freeCam && !palletDragState) {
-        resetPalletPointerDownState(event);
-        hideRotatePalletButton();
-        return;
-      }
-
-      cancelPalletPointerDown();
-
-      if (palletDragState && event.pointerId === palletDragState.pointerId) {
-        finishManualPalletDrag(event, true);
-      }
-
-      resetPalletPointerDownState(event);
-      hideRotatePalletButton();
+      if (event.pointerId === palletPointerDownPointerId || event.pointerId === palletDragState?.pointerId) cancelSafeDrag();
     }
+
 
     function handlePalletPointerLeave(event) {
-      if (freeCam && !palletDragState) {
-        resetPalletPointerDownState(event);
-        hideRotatePalletButton();
-        return;
-      }
-
-      if (palletDragState) return;
-
-      if (palletPointerDownHit) {
-        cancelPalletPointerDown();
-      } else {
-        hideRotatePalletButton();
-      }
+      // Pointer capture delivers release/cancel even outside the viewport.
+      if (!palletDragState && !palletPointerDownHit) renderer.domElement.style.cursor = '';
     }
+
 
     function placementHasSupportedChildren(bin, placement) {
       return bin.placements.some(p => p !== placement && p.supportId && p.supportId === placement.baseId && p.z > placement.z + EPS);
@@ -7035,7 +7190,7 @@
     }
 
     function updateManualModeUi() {
-      if (!manualMode) {
+      if (!manualMode || !advancedMode) {
         els.manualModeBox.hidden = true;
         els.container.classList.remove('is-manual');
         return;
@@ -7046,7 +7201,14 @@
       els.container.classList.add('is-manual');
     }
 
+
     function resetManualModesAfterPalletInputChange() {
+      cancelSafeDrag();
+      selectedCargoId = null;
+      manualUndoStack.length = 0;
+      manualRedoStack.length = 0;
+      els.manifestModal.hidden = true;
+      updateManualEditor();
       manualModeStates.clear();
       manualMode = false;
       manualSolution = null;
@@ -7059,9 +7221,11 @@
       updateManualModeUi();
     }
 
+
     function getPalletRowsInputState() {
       return [...els.palletRows.querySelectorAll('.pallet-row')].map(rowEl => ({
         rowId: rowEl.dataset.rowId || '',
+        ...readRowMetadata(rowEl),
         count: rowEl.querySelector('[data-field="count"]')?.value ?? '',
         L: rowEl.querySelector('[data-field="L"]')?.value ?? '',
         W: rowEl.querySelector('[data-field="W"]')?.value ?? '',
@@ -7071,15 +7235,18 @@
       }));
     }
 
+
     function getCylinderRowsInputState() {
       return [...els.cylinderRows.querySelectorAll('.cylinder-row')].map(rowEl => ({
         rowId: rowEl.dataset.rowId || '',
+        ...readRowMetadata(rowEl),
         count: rowEl.querySelector('[data-field="count"]')?.value ?? '',
         H: rowEl.querySelector('[data-field="H"]')?.value ?? '',
         D: rowEl.querySelector('[data-field="D"]')?.value ?? '',
         weight: rowEl.querySelector('[data-field="weight"]')?.value ?? ''
       }));
     }
+
 
     function getPalletRowsInputSignature() {
       return JSON.stringify(getPalletRowsInputState());
@@ -7096,6 +7263,9 @@
     function getPackingInputSignature() {
       return JSON.stringify({
         cargoType: getCargoType(),
+        separateOrders: els.requireSeparateOrders.checked,
+        preferHazardous: els.preferHazardous.checked,
+        timeLimitSeconds: advancedTimeLimitSeconds,
         equipmentMode: getEquipmentMode(),
         stackable: Boolean(els.stack.checked),
         layers: els.layers.value ?? '',
@@ -7105,6 +7275,7 @@
         rows: getActiveCargoRowsInputState()
       });
     }
+
 
     function handlePalletRowsChanged() {
       const rowsSignature = getPalletRowsInputSignature();
@@ -7142,6 +7313,7 @@
       manualSolution = null;
       manualModeInputDirty = false;
       updateManualModeUi();
+      lastCalculatedInputSignature = null;
       update(true);
     }
 
@@ -8025,50 +8197,25 @@
     }
 
     function rotatePalletFromHit(hit) {
-      if (!hit?.placement) return;
-
-      if (isCylinder(hit.placement)) {
-        hideRotatePalletButton();
-        return;
-      }
-
+      if (!canEditManually() || !hit?.placement || isCylinder(hit.placement)) return;
+      if (hit.placement.item?.lockRotation) { manualFeedback('Rotationen \u00e4r l\u00e5st p\u00e5 inmatningsraden.'); return; }
+      const old = hit.placement;
+      if (Math.abs(old.L-old.W) <= EPS) { manualFeedback('Kollit \u00e4r kvadratiskt; rotation \u00e4ndrar inte fotavtrycket.', true); return; }
       if (hit.isUnplaced) {
-        rotateUnplacedPallet(hit);
-        return;
+        const snapshot = snapshotManualSolution();
+        (old.item || hit.item).manualUnplacedOrientation = { L:old.W, W:old.L, kind:old.kind === 'A' ? 'B' : 'A' };
+        storeManualUndo(snapshot); finishManualCommit('Ej placerat kolli roterades.'); return;
       }
-
-      if (!hit?.bin) return;
-
-      if (manualMode) {
-        rotatePalletInManualMode(hit);
-        return;
-      }
-
-      const { bin, placement } = hit;
-
-      const rotated = candidateManualRotation(bin, placement);
-
-      if (!rotated) {
-        setRotationFeedback('Pallen kunde inte roteras eftersom pallens mått är ogiltiga.');
-        return;
-      }
-
-      const syncResult = syncManualRotationToPalletRows(placement, rotated);
-
-      if (!syncResult) {
-        setRotationFeedback('Pallen roterades inte eftersom den inte kunde kopplas till en pallrad i listan.');
-        return;
-      }
-
-      hideRotatePalletButton();
-
-      const suffix = syncResult === 'split'
-        ? ' En ny låst rad skapades för just den pallen.'
-        : '';
-
-      setRotationFeedback(`Pallen roterades manuellt och låstes till ${formatNumberForRowInput(rotated.L)}x${formatNumberForRowInput(rotated.W)} cm.${suffix}`, true);
-      handlePackingInputsChanged();
+      if (placementHasSupportedChildren(hit.bin, old)) { manualFeedback('Flytta \u00f6versta kollit innan du roterar ett b\u00e4rande kolli.'); return; }
+      const rotated = { ...old, L:old.W, W:old.L, kind:old.kind === 'A' ? 'B' : 'A' };
+      const bounds = getManualPlacementBounds(hit.bin.box, rotated);
+      if (!manualBoundsAreUsable(bounds)) { manualFeedback('Rotationen ryms inte i containern. Ingen \u00e4ndring gjordes.'); return; }
+      rotated.x = clamp(old.x + old.L/2 - rotated.L/2, bounds.xMin, bounds.xMax);
+      rotated.y = clamp(old.y + old.W/2 - rotated.W/2, bounds.yMin, bounds.yMax);
+      // Rotation keeps the existing level; it never silently unloads or restacks cargo.
+      commitSafePlacement(hit, hit.bin, rotated, 'Kollit roterades 90 grader. Placeringen \u00e4r validerad.');
     }
+
 
     function handleRotatePalletClick(event) {
       event.preventDefault();
@@ -8114,7 +8261,9 @@
       els.containerWeights.innerText = formatContainerWeightSummary(solution);
       els.calculationMethod.innerText = solution?.algorithm || '-';
       els.limitReason.innerText = solution?.weightLimited ? 'Vikt' : '-';
+      updateGroupingSummary(solution);
     }
+
 
     async function updateMixedMode(calculation = null, onProgress = null) {
       checkCalculation(calculation);
@@ -8167,7 +8316,11 @@
       updateSolutionStats({ algorithm: initialAlgorithm, bins: [], weightLimited: false });
       await calculationCheckpoint(calculation, onProgress, 0.03, Boolean(calculation?.allowYield));
 
-      if (useGroupedCylinderFastPath) {
+      if (!useFastPath || needsAdvancedPlanning(packableItems)) {
+        const result = await buildAdvancedPlanningResult(packableItems, wantedLayers, mode, capacityTypes, calculation, mapProgress(onProgress, 0.03, 0.86));
+        solution = result.solution;
+        capacityRows = result.capacityRows;
+      } else if (useGroupedCylinderFastPath) {
         const fastResult = await buildFastGroupedCylinderSolution(packableItems, wantedLayers, mode, {
           calculation,
           onProgress: mapProgress(onProgress, 0.03, 0.86)
@@ -8193,7 +8346,7 @@
         const previousDeadline = calculation?.deadline;
         const previousCandidateLimit = calculation?.maxCylinderCandidatePoints;
         if (calculation) {
-          calculation.deadline = performance.now() + BOUNDED_SEARCH_BUDGET_MS;
+          calculation.deadline = performance.now() + advancedTimeLimitSeconds * 1000;
           calculation.maxCylinderCandidatePoints = BOUNDED_MAX_CYLINDER_CANDIDATE_POINTS;
           calculation.planCache?.clear();
         }
@@ -8222,7 +8375,7 @@
         const previousDeadline = calculation?.deadline;
         const previousCandidateLimit = calculation?.maxCylinderCandidatePoints;
         if (calculation) {
-          calculation.deadline = performance.now() + OPTIMIZED_SEARCH_BUDGET_MS;
+          calculation.deadline = performance.now() + advancedTimeLimitSeconds * 1000;
           calculation.maxCylinderCandidatePoints = previousCandidateLimit ?? DEFAULT_MAX_CYLINDER_CANDIDATE_POINTS;
           calculation.planCache?.clear();
         }
@@ -8262,7 +8415,7 @@
         } catch (error) {
           if (!(error instanceof CalculationBudgetExceededError)) throw error;
           if (calculation) {
-            calculation.deadline = performance.now() + BOUNDED_SEARCH_BUDGET_MS;
+            calculation.deadline = performance.now() + advancedTimeLimitSeconds * 1000;
             calculation.maxCylinderCandidatePoints = BOUNDED_MAX_CYLINDER_CANDIDATE_POINTS;
             calculation.planCache?.clear();
           }
@@ -8291,6 +8444,12 @@
         }
       }
 
+      if (!solution.layoutRefined) {
+        solution = await refineSolutionLayout(solution, wantedLayers, calculation, {
+          maxMs: Math.min(1500, advancedTimeLimitSeconds * 180)
+        });
+      }
+
       solution.unplaced = uniqueItemsByBaseId([
         ...(solution.unplaced || []),
         ...tooTallItems,
@@ -8309,6 +8468,7 @@
       ));
       const allUnplacedItems = uniqueItemsByBaseId(solution.unplaced || []);
       const visualSolution = {
+        ...solution,
         type: solution.type,
         mode: solution.mode || mode,
         cargoType: getCargoType(),
@@ -8352,7 +8512,7 @@
       const openTopOverheightCount = solutionOpenTopOverheightCount(solution);
 
       if (solution.budgetLimited) {
-        notes.push('<span class="warning">Optimeringen nådde tidsgränsen; en snabb reservlösning användes.</span>');
+        notes.push('<span class="warning">Sökningen nådde tidsgränsen. Bästa fullständiga lösning som hittats visas; globalt minimum är inte bevisat.</span>');
       } else if (solution.boundedSearch) {
         notes.push('<span>Stor blandad lista: begränsad sökning användes för att undvika att beräkningen låser sig.</span>');
       }
@@ -8386,6 +8546,9 @@
       autoFitCamera();
       await calculationCheckpoint(calculation, onProgress, 1, Boolean(calculation?.allowYield));
     }
+
+
+
 
     // -------------------------------
     // SHARED
@@ -8555,7 +8718,7 @@
         .replace(/'/g, '&#039;');
     }
 
-    const PDF_TITLE = 'Eriks Packing Plan';
+    const PDF_TITLE = 'Packing Plan';
     const PDF_LOCALE = 'en-US';
 
     function normalizePdfText(value) {
@@ -8602,7 +8765,7 @@
     }
 
     function buildPdfFileName(solution, date) {
-      const cargoPart = getCargoType() === 'cylinder' ? 'Cylinders' : 'Pallets';
+      const cargoPart = 'Cargo';
       const totalUnits = readActiveCargoRowDefinitions().reduce((sum, row) => sum + row.count, 0);
       const counts = new Map();
 
@@ -8617,7 +8780,7 @@
         .map(type => `${counts.get(type)}x${sanitizePdfFilenamePart(formatContainerType(type))}`)
         .join('_') || 'No-Containers';
 
-      return `Eriks-Packing-Plan_${cargoPart}-${totalUnits}pcs_${equipmentPart}_${formatPdfFileTimestamp(date)}.pdf`;
+      return `Packing-Plan_${cargoPart}-${totalUnits}pcs_${equipmentPart}_${formatPdfFileTimestamp(date)}.pdf`;
     }
 
     function loadImageDataUrl(src) {
@@ -8712,32 +8875,12 @@
 
     function getCargoRowsTableForPdf() {
       const rows = readActiveCargoRowDefinitions();
-
-      if (isCylinderMode()) {
-        return {
-          columns: ['Row', 'Count', 'Height x diameter (cm)', 'Weight'],
-          rows: rows.map((row, idx) => [
-            String(idx + 1),
-            String(row.count),
-            `${formatNumberForRowInput(row.H)} x ${formatNumberForRowInput(row.D)}`,
-            row.weight === '' ? '-' : `${formatNumberForRowInput(row.weight)} kg`
-          ]),
-          widths: [18, 25, 90, 38],
-          title: 'Cylinder rows'
-        };
-      }
-
       return {
-        columns: ['Row', 'Count', 'Dimensions L x W x H (cm)', 'Weight', 'Rotation locked'],
-        rows: rows.map((row, idx) => [
-          String(idx + 1),
-          String(row.count),
-          `${formatNumberForRowInput(row.L)} x ${formatNumberForRowInput(row.W)} x ${formatNumberForRowInput(row.H)}`,
-          row.weight === '' ? '-' : `${formatNumberForRowInput(row.weight)} kg`,
-          row.lockRotation ? 'Yes' : 'No'
-        ]),
-        widths: [18, 25, 72, 32, 38],
-        title: 'Pallet rows'
+        columns: ['Row', 'Count', 'Order ref', 'Cargo class', 'Dimensions (cm)', 'kg / unit'],
+        rows: rows.map((row, i) => [String(i + 1), String(row.count), row.orderRef,
+          cargoClassLabel(row.cargoClass), isCylinder(row) ? `${row.H} x ${row.D}` : `${row.L} x ${row.W} x ${row.H}`,
+          row.weight === '' ? '-' : String(row.weight)]),
+        widths: [14, 18, 78, 38, 72, 30], title: 'Cargo input rows'
       };
     }
 
@@ -8748,28 +8891,12 @@
       return `${formatPdfNumber(info.knownWeight, 1)} kg${suffix}`;
     }
 
-    function getPdfStatusForBin(bin) {
-      const status = [];
-
-      if (bin.visualOnly) status.push('Visual warning');
-      if (binHasHeightWarning(bin)) status.push('Height warning');
-      if (binHasOpenTopOverheightInfo(bin)) status.push('Open top overheight');
-      if (binHasWidthWarning(bin)) status.push('Overwidth');
-      if (!status.length) status.push('OK');
-
-      return status.join(', ');
-    }
-
     function getSolutionRowsForPdf(solution = lastRenderedSolution) {
       if (!solution?.bins?.length) return [];
-
       return solution.bins.map((bin, idx) => [
-        `${idx + 1}`,
-        formatContainerType(bin.type),
+        `${idx + 1}`, formatContainerType(bin.type),
         `${bin.items?.length || bin.placements?.length || 0}`,
-        getBinWeightSummaryForPdf(bin),
-        `${formatPdfNumber(fillRatio(bin) * 100, 1)}%`,
-        getPdfStatusForBin(bin)
+        getBinWeightSummaryForPdf(bin), `${formatPdfNumber(fillRatio(bin) * 100, 1)}%`
       ]);
     }
 
@@ -8885,6 +9012,8 @@
     function updateCameraToggleUi() {
       els.toggleCamBtn.innerText = freeCam ? 'Cam Unlocked' : 'Cam Locked';
       els.toggleCamBtn.classList.toggle('active', freeCam);
+      els.toggleCamBtn.setAttribute('aria-pressed', String(freeCam));
+      els.toggleCamBtn.title = freeCam ? 'Klicka f\u00f6r att l\u00e5sa kameran' : 'Klicka f\u00f6r att l\u00e5sa upp och flytta kameran';
       if (freeCam) {
         clearTimeout(camLockFlashTimer);
         els.toggleCamBtn.classList.remove('cam-lock-flash');
@@ -9685,17 +9814,20 @@
 
       const drawHeader = () => {
         doc.setFillColor(17, 22, 42);
-        doc.roundedRect(x, cy, colWidths.reduce((sum, width) => sum + width, 0), 8, 1.5, 1.5, 'F');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.6);
+        const headerCells = columns.map((col, idx) => doc.splitTextToSize(normalizePdfText(col), colWidths[idx] - 4));
+        const headerH = Math.max(8, Math.max(...headerCells.map(lines => lines.length)) * 3.8 + 4);
+        doc.roundedRect(x, cy, colWidths.reduce((sum, width) => sum + width, 0), headerH, 1.5, 1.5, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8.6);
 
         let cx = x;
         columns.forEach((col, idx) => {
-          doc.text(normalizePdfText(col), cx + 2, cy + 5.2, { maxWidth: colWidths[idx] - 4 });
+          doc.text(headerCells[idx], cx + 2, cy + 5.2, { maxWidth: colWidths[idx] - 4 });
           cx += colWidths[idx];
         });
-        cy += 8;
+        cy += headerH;
       };
 
       const newPage = () => {
@@ -9707,6 +9839,11 @@
         drawHeader();
       };
 
+      if (cy + (title ? 6 : 0) + 18 > pageH - bottom) {
+        doc.addPage('a4', 'landscape');
+        doc.setFillColor(246, 248, 252); doc.rect(0, 0, pageW, pageH, 'F');
+        addPdfHeader(doc, 'Details'); cy = 26;
+      }
       drawTitle();
       drawHeader();
 
@@ -9744,11 +9881,12 @@
       return cy + 5;
     }
 
+
     function drawContainerSummaryLine(doc, bin, idx, y) {
       const pageW = doc.internal.pageSize.getWidth();
       const unitCount = bin.items?.length || bin.placements?.length || 0;
       const labels = getCargoPdfLabels(unitCount);
-      const text = `Container ${idx + 1} | ${formatContainerType(bin.type)} | ${labels.equipmentColumn}: ${unitCount} | Weight: ${getBinWeightSummaryForPdf(bin)} | Fill: ${formatPdfNumber(fillRatio(bin) * 100, 1)}% | Status: ${getPdfStatusForBin(bin)}`;
+      const text = `Container ${idx + 1} | ${formatContainerType(bin.type)} | ${labels.equipmentColumn}: ${unitCount} | Weight: ${getBinWeightSummaryForPdf(bin)} | Fill: ${formatPdfNumber(fillRatio(bin) * 100, 1)}%`;
 
       doc.setFillColor(255, 255, 255);
       doc.roundedRect(10, y, pageW - 20, 10, 2, 2, 'F');
@@ -9785,6 +9923,10 @@
         throw new Error('En uppdaterad packning krävs före PDF-export.');
       }
 
+      cancelSafeDrag();
+      exportInProgress = true;
+      lockExportUi(true);
+      updateCalculateButtonState();
       els.exportPdfBtn.disabled = true;
       const originalText = els.exportPdfBtn.textContent;
       els.exportPdfBtn.textContent = 'Skapar PDF...';
@@ -9841,11 +9983,11 @@
 
         y = drawPdfTable(
           doc,
-          ['#', 'Equipment', cargoLabels.equipmentColumn, 'Weight', 'Fill rate', 'Status'],
+          ['#', 'Equipment', cargoLabels.equipmentColumn, 'Weight', 'Fill rate'],
           getSolutionRowsForPdf(exportSolution),
           10,
           y + 4,
-          [16, 42, 26, 38, 32, 58],
+          [18, 65, 42, 70, 55],
           { title: 'Equipment' }
         );
 
@@ -9873,6 +10015,15 @@
           doc.text(doc.splitTextToSize(notes, 215), 45, y + 7);
         }
 
+        doc.addPage('a4', 'landscape');
+        doc.setFillColor(246, 248, 252); doc.rect(0, 0, pageW, pageH, 'F');
+        addPdfHeader(doc, 'Loading list', 'One row per cargo unit. Cargo class is a planning label, not a dangerous-goods compatibility check.');
+        const manifest = getManifestRows(exportSolution);
+        drawPdfTable(doc, ['Unit', 'Container', 'Equipment', 'Order ref', 'Cargo class', 'L x W x H (cm)', 'kg'],
+          manifest.map(r => [r.unit, r.placed ? r.container : '-', r.equipment || '-', r.orderRef, cargoClassLabel(r.cargoClass),
+            `${r.L} x ${r.W} x ${r.H}`, r.weight === '' ? '-' : String(r.weight)]),
+          10, 28, [17, 24, 29, 77, 35, 48, 20], { title: 'Cargo units' });
+
         containerCaptures.forEach((capture, idx) => {
           addContainerViewPage(doc, capture, idx, timestamp);
         });
@@ -9886,11 +10037,16 @@
         doc.save(buildPdfFileName(exportSolution, now));
         els.importMsg.innerHTML = '<span class="success">PDF exporterad.</span>';
       } finally {
+        exportInProgress = false;
+        lockExportUi(false);
         restoreSceneAfterPdfExport(originalSolution, originalCameraState, originalManualSolution);
         els.exportPdfBtn.textContent = originalText;
         updateCalculateButtonState();
       }
     }
+
+
+
 
     function cancelActiveCalculation() {
       if (activeCalculation) activeCalculation.cancelled = true;
@@ -9944,6 +10100,11 @@
         return;
       }
 
+      cancelSafeDrag();
+      selectedCargoId = null;
+      manualUndoStack.length = 0;
+      manualRedoStack.length = 0;
+      updateManualEditor();
       clearTimeout(updateDelayTimer);
       cancelActiveCalculation();
       updateJobId++;
@@ -9959,7 +10120,7 @@
       hideRotatePalletButton();
 
       const totalUnits = getCurrentTotalPalletCount();
-      const showProgress = totalUnits > LONG_CALC_THRESHOLD;
+      const showProgress = advancedMode || totalUnits > LONG_CALC_THRESHOLD || hasCargoGrouping(readActiveCargoRowDefinitions());
       const calculation = {
         jobId: updateJobId,
         cancelled: false,
@@ -9982,6 +10143,8 @@
       }, showProgress ? LONG_CALC_DELAY_MS : 0);
     }
 
+
+
     function animate() {
       requestAnimationFrame(animate);
       controls.update();
@@ -9989,6 +10152,1078 @@
       renderer.render(scene, camera);
     }
 
+
+    // ------------------------------------------------------------------
+    // v8.3.1 layout polish: optimize appearance only after the load plan.
+    // Membership, equipment, cargo IDs and physical constraints never change.
+    // ------------------------------------------------------------------
+    function layoutScoreBetter(a, b) {
+      if (!b) return true;
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const av = a[i] || 0, bv = b[i] || 0;
+        if (av < bv - EPS) return true;
+        if (av > bv + EPS) return false;
+      }
+      return false;
+    }
+
+    function binLayoutScore(bin) {
+      const placed = bin?.placements || [];
+      if (!placed.length) return [0, 0, 0, 0, 0, 0, 0];
+      let minX = Infinity, minY = Infinity, maxX = 0, maxY = -Infinity;
+      let maxZ = 0, floorArea = 0, positionSum = 0;
+      const orientations = new Map(), rows = new Set(), columns = new Set();
+      for (const p of placed) {
+        minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x + p.L); maxY = Math.max(maxY, p.y + p.W);
+        maxZ = Math.max(maxZ, p.z + p.H);
+        positionSum += p.x + p.y;
+        if (p.z <= EPS) floorArea += p.L * p.W;
+        rows.add(Math.round(p.x * 1000)); columns.add(Math.round(p.y * 1000));
+        if (!isCylinder(p) && Math.abs(p.L - p.W) > EPS) {
+          const key = [Math.min(p.L, p.W), Math.max(p.L, p.W), p.H].join('|');
+          const counts = orientations.get(key) || [0, 0];
+          counts[p.L >= p.W ? 0 : 1]++;
+          orientations.set(key, counts);
+        }
+      }
+      const spanX = maxX - minX, spanY = maxY - minY;
+      const voidArea = Math.max(0, spanX * spanY - floorArea);
+      const rotationMix = [...orientations.values()].reduce((sum, pair) => sum + Math.min(...pair), 0);
+      const originGap = bin.box?.flatRack ? 0 : minX + Math.max(0, minY);
+      return [voidArea, rotationMix, spanX, maxZ, rows.size + columns.size, originGap,
+        positionSum - placed.length * (minX + minY)];
+    }
+
+    function solutionLayoutScore(solution) {
+      const result = [0, 0, 0, 0, 0, 0, 0];
+      for (const bin of solution?.bins || []) {
+        const score = binLayoutScore(bin);
+        score.forEach((value, index) => { result[index] += value; });
+      }
+      return result;
+    }
+
+    function validateLayoutBin(bin, wantedLayers) {
+      const ids = new Set();
+      if (bin.placements.length !== bin.items.length) return false;
+      for (const p of bin.placements) {
+        if (!p.item || p.baseId !== p.item.baseId || ids.has(p.baseId)) return false;
+        ids.add(p.baseId);
+        if (![p.x, p.y, p.z, p.L, p.W, p.H].every(Number.isFinite)) return false;
+        if (Math.abs(p.H - p.item.H) > EPS) return false;
+        if (!getItemOrientations(p.item).some(o => Math.abs(o.L - p.L) < EPS && Math.abs(o.W - p.W) < EPS)) return false;
+        const support = canPlaceInBin(bin, p.item, p.x, p.y, p.z, p.L, p.W, wantedLayers,
+          { ignorePlacement: p });
+        if (!support) return false;
+        if ((p.layer || 1) !== support.layer || (p.supportId || null) !== (support.support?.baseId || null)) return false;
+      }
+      return bin.items.every(item => ids.has(item.baseId));
+    }
+
+    function compactBinLayout(source, wantedLayers, calculation) {
+      if (!source.placements.length || source.visualOnly || source.placements.some(isCylinder)) return source;
+      const bin = cloneBin(source);
+      // Move whole support trees: a floor unit never slides away from its load.
+      const roots = bin.placements.filter(p => p.z <= EPS);
+      const stacks = roots.map(root => collectPlacementStack(bin, root));
+      const covered = new Set(stacks.flat().map(p => p.baseId));
+      if (covered.size !== bin.placements.length) return source;
+      for (let pass = 0; pass < 4; pass++) {
+        let moved = false;
+        for (const axis of ['x', 'y']) {
+          const size = axis === 'x' ? 'L' : 'W';
+          const otherAxis = axis === 'x' ? 'y' : 'x';
+          const otherSize = axis === 'x' ? 'W' : 'L';
+          const ordered = [...stacks].sort((a, b) => a[0][axis] - b[0][axis] || a[0][otherAxis] - b[0][otherAxis]);
+          for (const stack of ordered) {
+            checkCalculation(calculation);
+            const own = new Set(stack);
+            let distance = Infinity;
+            for (const p of stack) {
+              // An overwidth flat-rack unit remains centered across the rack.
+              if (axis === 'y' && isFlatRackOverWidth(bin.box, p.W)) { distance = 0; break; }
+              let minimum = 0;
+              if (openTopPlacementNeedsRoofOpeningClearance(bin.box, p.item)) {
+                const opening = getRoofOpeningBounds(bin.box);
+                minimum = axis === 'x' ? opening.xMin : opening.yMin;
+              }
+              distance = Math.min(distance, Math.max(0, p[axis] - minimum));
+              for (const q of bin.placements) {
+                if (own.has(q) || !verticalIntervalsOverlap(p, q)) continue;
+                if (overlapLen(p[otherAxis], p[otherAxis] + p[otherSize], q[otherAxis], q[otherAxis] + q[otherSize]) <= EPS) continue;
+                const farEdge = q[axis] + q[size];
+                if (farEdge <= p[axis] + EPS) distance = Math.min(distance, Math.max(0, p[axis] - farEdge));
+              }
+            }
+            if (Number.isFinite(distance) && distance > EPS) {
+              for (const p of stack) p[axis] -= distance;
+              invalidateBinGeometryCaches(bin);
+              moved = true;
+            }
+          }
+        }
+        if (!moved) break;
+      }
+      return validateLayoutBin(bin, wantedLayers) ? bin : source;
+    }
+
+    function buildLayoutItemOrders(bin) {
+      const sizeKey = item => `${Math.min(item.L, item.W)}|${Math.max(item.L, item.W)}|${item.H}`;
+      const byArea = (a, b) => b.area - a.area || b.volume - a.volume;
+      const trials = [
+        [...bin.placements].sort((a, b) => a.z - b.z || a.x - b.x || a.y - b.y).map(p => p.item),
+        [...bin.items].sort(byArea),
+        [...bin.items].sort((a, b) => b.W - a.W || b.L - a.L || b.H - a.H),
+        [...bin.items].sort((a, b) => b.L - a.L || b.W - a.W || b.H - a.H),
+        [...bin.items].sort((a, b) => sizeKey(a).localeCompare(sizeKey(b), 'en', { numeric: true }) || byArea(a, b)),
+        [...bin.items].sort((a, b) => b.H - a.H || byArea(a, b))
+      ];
+      const seen = new Set();
+      return trials.filter(order => {
+        const key = order.map(item => item.baseId).join('|');
+        if (seen.has(key)) return false;
+        seen.add(key); return true;
+      });
+    }
+
+    async function refineSolutionLayout(solution, wantedLayers, calculation = null, options = {}) {
+      if (!solution || solution.manualEdited || solution.layoutRefined) return solution;
+      const result = cloneSolution(solution);
+      const started = performance.now();
+      const deadline = Math.min(options.deadline ?? (started + (options.maxMs ?? 1200)), calculation?.deadline ?? Infinity);
+      const calc = {
+        jobId: calculation?.jobId ?? updateJobId,
+        get cancelled() { return Boolean(calculation?.cancelled); },
+        deadline, allowYield: true, planCache: new Map(), onFullCandidate: null
+      };
+      let changedBins = 0;
+      try {
+        for (let index = 0; index < result.bins.length; index++) {
+          checkCalculation(calc);
+          const original = result.bins[index];
+          if (original.visualOnly || !original.items.length || original.placements.some(isCylinder)) continue;
+          if (!validateLayoutBin(original, wantedLayers)) continue;
+          let best = original;
+          const identity = original.items.map(item => item.baseId).sort().join('|');
+          const consider = candidate => {
+            if (!candidate || candidate.items.map(item => item.baseId).sort().join('|') !== identity) return;
+            if (binWidthWarningCount(candidate) > binWidthWarningCount(original)) return;
+            if (binWidthOverflowAmount(candidate) > binWidthOverflowAmount(original) + EPS) return;
+            if (!validateLayoutBin(candidate, wantedLayers)) return;
+            if (layoutScoreBetter(binLayoutScore(candidate), binLayoutScore(best))) {
+              best = candidate;
+              result.bins[index] = best; // Keep every completed improvement on timeout.
+            }
+          };
+          consider(compactBinLayout(original, wantedLayers, calc));
+          if (original.items.length <= 180) {
+            const orders = buildLayoutItemOrders(original);
+            for (let orderIndex = 0; orderIndex < orders.length; orderIndex++) {
+              const order = orders[orderIndex];
+              const variants = orderIndex === 0
+                ? [['ROW', 'long'], ['ROW', 'short'], ['ROW', null], ['BLF', null]]
+                : [['ROW', null], ['BLF', null]];
+              for (const [heuristic, orientationPolicy] of variants) {
+                checkCalculation(calc);
+                const trial = await packIntoBins([createEmptyBin(original.type)], order, heuristic,
+                  original.type, wantedLayers, false, { calculation: calc, orientationPolicy });
+                if (!trial.unplaced.length && trial.bins.length === 1) {
+                  const candidate = compactBinLayout(trial.bins[0], wantedLayers, calc);
+                  candidate.openedByWeight = original.openedByWeight;
+                  consider(candidate);
+                }
+                await calculationCheckpoint(calc, null, null, true);
+              }
+            }
+          }
+          if (best !== original) changedBins++;
+        }
+      } catch (error) {
+        if (!(error instanceof CalculationBudgetExceededError)) throw error;
+        result.layoutBudgetLimited = true;
+      }
+      result.layoutRefined = true;
+      result.layoutPolishedBins = changedBins;
+      result.layoutElapsedMs = performance.now() - started;
+      return result;
+    }
+
+
+    // ------------------------------------------------------------------
+    // v8.3 metadata, atomic block import, and bounded grouped optimization.
+    // ------------------------------------------------------------------
+    function normalizeOrderRef(value) {
+      const text = String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+      if (text.length > 120) throw new Error('Orderref f\u00e5r vara h\u00f6gst 120 tecken.');
+      return text || 'Order-001';
+    }
+
+    function normalizeCargoClass(value) {
+      const v = String(value ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (['', 'general', 'general cargo', 'gen', 'gc', 'allmant', 'allmant gods', '0', 'false', 'no', 'nej'].includes(v)) return 'general';
+      if (['hazardous', 'hazardous cargo', 'haz', 'dg', 'dangerous', 'dangerous goods', 'farligt', 'farligt gods', '1', 'true', 'yes', 'ja'].includes(v)) return 'hazardous';
+      throw new Error(`Ok\u00e4nd godsklass: ${String(value)}. Anv\u00e4nd general eller hazardous.`);
+    }
+
+    function cargoClassLabel(value) {
+      return normalizeCargoClass(value) === 'hazardous' ? 'Hazardous' : 'General cargo';
+    }
+
+    function readRowMetadata(row) {
+      return {
+        orderRef: normalizeOrderRef(row.querySelector('[data-field="orderRef"]')?.value),
+        cargoClass: normalizeCargoClass(row.querySelector('[data-field="cargoClass"]')?.value)
+      };
+    }
+
+    function addRowMetadataInputs(row, data, handler) {
+      const box = document.createElement('div');
+      box.className = 'row-metadata';
+      const refLabel = document.createElement('label');
+      refLabel.textContent = 'Orderref';
+      const ref = document.createElement('input');
+      ref.type = 'text'; ref.maxLength = 120; ref.dataset.field = 'orderRef';
+      ref.value = normalizeOrderRef(data.orderRef); ref.autocomplete = 'off';
+      ref.addEventListener('input', handler); ref.addEventListener('change', handler);
+      refLabel.appendChild(ref);
+      const classLabel = document.createElement('label');
+      classLabel.textContent = 'Godsklass';
+      const classification = document.createElement('select');
+      classification.dataset.field = 'cargoClass';
+      for (const [value, text] of [['general', 'General cargo'], ['hazardous', 'Hazardous']]) classification.add(new Option(text, value));
+      classification.value = normalizeCargoClass(data.cargoClass);
+      classification.addEventListener('change', handler); classLabel.appendChild(classification);
+      box.append(refLabel, classLabel); row.appendChild(box);
+    }
+
+    function getBlockSeparator() {
+      const sep = els.groupSeparator.value === 'custom' ? els.customSeparator.value.trim() : els.groupSeparator.value;
+      if (!sep || sep.length > 16 || /[\w\s(),;]/.test(sep)) {
+        throw new Error('Avskiljaren ska vara 1\u201316 specialtecken, utan blanksteg, siffror, parenteser, komma eller semikolon.');
+      }
+      return sep;
+    }
+
+    function parseAdvancedCargoText(text, cargoType, separator = getBlockSeparator()) {
+      if (!String(text).trim()) return [];
+      const result = [];
+      let orderRef = 'Order-001';
+      let cargoClass = 'general';
+      let blockIndex = 0;
+      let blockHasHeader = false;
+      let blockUnits = 0;
+      const finishBlock = line => {
+        if (blockHasHeader && blockUnits === 0) throw new Error(`Tomt godsblock f\u00f6re rad ${line}.`);
+      };
+      const parseTuple = (raw, count, lineNo) => {
+        const parts = splitImportedTuple(raw);
+        const allowed = cargoType === 'cylinder' ? [2, 3] : [3, 4];
+        if (!allowed.includes(parts.length)) throw new Error(`Rad ${lineNo}: fel antal m\u00e5tt. ${cargoType === 'cylinder' ? '(H,diameter[,vikt])' : '(L,B,H[,vikt])'} kr\u00e4vs.`);
+        const numbers = parts.map(part => {
+          const v = String(part).trim().replace(/\s/g, '').replace(',', '.');
+          return /^[+]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(v) ? Number(v) : NaN;
+        });
+        const dims = cargoType === 'cylinder' ? 2 : 3;
+        if (numbers.some(n => !Number.isFinite(n)) || numbers.slice(0, dims).some(n => n <= 0)) throw new Error(`Rad ${lineNo}: ogiltiga m\u00e5tt eller vikt.`);
+        if (!Number.isSafeInteger(count) || count < 1 || count > 10000) throw new Error(`Rad ${lineNo}: antal ska vara ett heltal 1\u201310000.`);
+        const weight = numbers.length > dims ? numbers[dims] : '';
+        const row = { count, orderRef, cargoClass, weight, lockRotation: cargoType === 'cylinder', cargoType, shape: cargoType === 'cylinder' ? 'cylinder' : 'box' };
+        if (cargoType === 'cylinder') Object.assign(row, { H: numbers[0], D: numbers[1], L: numbers[1], W: numbers[1] });
+        else Object.assign(row, { L: numbers[0], W: numbers[1], H: numbers[2] });
+        result.push(row); blockUnits += count;
+      };
+      const lines = String(text).replace(/^\ufeff/, '').split(/\r?\n/);
+      lines.forEach((rawLine, index) => {
+        const line = rawLine.trim();
+        if (!line) return;
+        if (line.startsWith(separator)) {
+          finishBlock(index + 1);
+          if (blockIndex === 0 && result.length) blockIndex = 1;
+          blockIndex++; blockHasHeader = true; blockUnits = 0;
+          let header = line.slice(separator.length).trim().replace(/^order\s*:\s*/i, '');
+          if (header.startsWith('[') && header.endsWith(']')) header = header.slice(1, -1).trim();
+          const pipe = header.lastIndexOf('|');
+          if (pipe >= 0) {
+            orderRef = normalizeOrderRef(header.slice(0, pipe) || `Order-${String(blockIndex).padStart(3, '0')}`);
+            cargoClass = normalizeCargoClass(header.slice(pipe + 1));
+          } else {
+            const onlyClass = /^(hazardous|haz|dg|general|general cargo|gc)$/i.test(header);
+            orderRef = normalizeOrderRef(onlyClass || !header ? `Order-${String(blockIndex).padStart(3, '0')}` : header);
+            cargoClass = onlyClass ? normalizeCargoClass(header) : 'general';
+          }
+          return;
+        }
+        if (line.includes('(') || line.includes(')')) {
+          const regex = /(?:(\d+)\s*[xX*]\s*)?\(([^()]*)\)/g;
+          let cursor = 0, match, found = false;
+          while ((match = regex.exec(line))) {
+            if (!/^[\s,;]*$/.test(line.slice(cursor, match.index))) throw new Error(`Rad ${index + 1}: ok\u00e4nd text mellan kollin. Ingen import gjord.`);
+            parseTuple(match[2], match[1] ? Number(match[1]) : 1, index + 1);
+            cursor = regex.lastIndex; found = true;
+          }
+          if (!found || !/^[\s,;]*$/.test(line.slice(cursor))) throw new Error(`Rad ${index + 1}: felaktigt kolliformat. Ingen import gjord.`);
+        } else {
+          const raw = line.includes(';') || line.includes(',') ? line : line.split(/\s+/).join(',');
+          parseTuple(raw, 1, index + 1);
+        }
+      });
+      finishBlock(lines.length + 1);
+      return result;
+    }
+
+    function importCargoText(cargoType) {
+      try {
+        const input = cargoType === 'cylinder' ? els.cylinderImport : els.palletImport;
+        const sep = advancedMode ? getBlockSeparator() : (els.groupSeparator.value === 'custom' ? (els.customSeparator.value.trim() || '---') : els.groupSeparator.value);
+        const hasHeaders = input.value.split(/\r?\n/).some(line => line.trim().startsWith(sep) || /^(---|===|\|\|\|)/.test(line.trim()));
+        if (!advancedMode && hasHeaders) throw new Error('Texten inneh\u00e5ller godsblock. Aktivera Advanced mode innan import s\u00e5 att orderreferenser inte tappas.');
+        const raw = advancedMode ? parseAdvancedCargoText(input.value, cargoType, sep) :
+          cargoType === 'cylinder' ? parseImportedCylinderRows(input.value) : parseImportedPalletRows(input.value);
+        const rows = cargoType === 'cylinder' ? compressCylinderRowDefinitions(raw) : compressPalletRowDefinitions(raw);
+        if (!rows.length) throw new Error('Inga giltiga kollin hittades.');
+        // Do not touch existing input until every block has been validated.
+        if (cargoType === 'cylinder') { clearCylinderRows(); rows.forEach(row => addCylinderRow(row, false)); handleCylinderRowsChanged(); }
+        else { clearPalletRows(); rows.forEach(row => addPalletRow(row, false)); handlePalletRowsChanged(); }
+        const count = rows.reduce((n, r) => n + r.count, 0);
+        const orderCount = new Set(rows.map(r => r.orderRef)).size;
+        els.importMsg.innerHTML = `<span class="success">Importerade ${count} kollin, ${orderCount} order(s), ${rows.length} rad(er).</span>`;
+      } catch (error) {
+        els.importMsg.innerHTML = `<span class="warning">${escapeHtml(error.message)}</span>`;
+      }
+    }
+
+    function hasCargoGrouping(items) {
+      return els.requireSeparateOrders.checked || items.some(item => normalizeCargoClass(item.cargoClass) === 'hazardous' || normalizeOrderRef(item.orderRef) !== 'Order-001');
+    }
+
+    function needsAdvancedPlanning(items) { return advancedMode || hasCargoGrouping(items); }
+
+    function canShareOrderInBin(bin, item, options = {}) {
+      if (!els.requireSeparateOrders.checked) return true;
+      const order = normalizeOrderRef(item.orderRef);
+      return (bin.placements || []).every(p => placementIsIgnored(p, options) || normalizeOrderRef(p.item?.orderRef) === order);
+    }
+
+    function equipmentSignature(solution) {
+      const counts = countContainersByType((solution?.bins || []).filter(bin => bin.placements.length));
+      return Object.keys(counts).sort().map(key => `${key}:${counts[key]}`).join('|');
+    }
+
+    function groupingMetrics(solution) {
+      let hazardousContainers = 0, generalOnlyContainers = 0, mixedOrderContainers = 0, sameOrderPairs = 0;
+      const orderBins = new Map();
+      for (const bin of solution?.bins || []) {
+        if (!bin.items.length) continue;
+        const counts = new Map();
+        if (bin.items.some(item => item.cargoClass === 'hazardous')) hazardousContainers++;
+        else generalOnlyContainers++;
+        for (const item of bin.items) counts.set(normalizeOrderRef(item.orderRef), (counts.get(normalizeOrderRef(item.orderRef)) || 0) + 1);
+        if (counts.size > 1) mixedOrderContainers++;
+        for (const [ref, count] of counts) { orderBins.set(ref, (orderBins.get(ref) || 0) + 1); sameOrderPairs += count * (count - 1) / 2; }
+      }
+      const orderSplits = [...orderBins.values()].reduce((sum, n) => sum + Math.max(0, n - 1), 0);
+      return { hazardousContainers, generalOnlyContainers, mixedOrderContainers, orderSplits, sameOrderPairs };
+    }
+
+    function solutionGroupingScore(solution) {
+      const m = groupingMetrics(solution);
+      const multipleOrders = new Set((solution?.bins || []).flatMap(bin => bin.items.map(item => normalizeOrderRef(item.orderRef)))).size > 1;
+      return [els.preferHazardous.checked ? m.hazardousContainers : 0, multipleOrders ? m.orderSplits : 0, multipleOrders ? m.mixedOrderContainers : 0, multipleOrders ? -m.sameOrderPairs : 0];
+    }
+
+    function placementGroupingScore(bin, item) {
+      const occupied = bin.items.length > 0;
+      const hasHazardous = bin.items.some(v => v.cargoClass === 'hazardous');
+      const isHazardous = item.cargoClass === 'hazardous';
+      const hazPenalty = els.preferHazardous.checked && occupied && isHazardous !== hasHazardous ? 1 : 0;
+      const same = bin.items.some(v => normalizeOrderRef(v.orderRef) === normalizeOrderRef(item.orderRef));
+      return [hazPenalty, same ? 0 : occupied ? 2 : 1];
+    }
+
+    function buildGroupedItemOrders(items) {
+      const groupVolumes = new Map();
+      for (const item of items) groupVolumes.set(normalizeOrderRef(item.orderRef), (groupVolumes.get(normalizeOrderRef(item.orderRef)) || 0) + item.volume);
+      const bySize = (a, b) => b.volume - a.volume || b.area - a.area || b.H - a.H;
+      const byRef = (a, b) => normalizeOrderRef(a.orderRef).localeCompare(normalizeOrderRef(b.orderRef), 'sv');
+      const byGroupVolume = (a, b) => groupVolumes.get(normalizeOrderRef(b.orderRef)) - groupVolumes.get(normalizeOrderRef(a.orderRef)) || byRef(a, b);
+      const byClass = (a, b) => Number(b.cargoClass === 'hazardous') - Number(a.cargoClass === 'hazardous');
+      return [
+        [...items].sort((a,b) => byClass(a,b) || byGroupVolume(a,b) || bySize(a,b)),
+        [...items].sort((a,b) => byGroupVolume(a,b) || byClass(a,b) || bySize(a,b)),
+        [...items].sort((a,b) => -byGroupVolume(a,b) || byClass(a,b) || bySize(a,b)),
+        [...items].sort((a,b) => -byClass(a,b) || byGroupVolume(a,b) || bySize(a,b)),
+        [...items].sort((a,b) => byRef(a,b) || bySize(a,b)),
+        [...items].sort((a,b) => byClass(a,b) || bySize(a,b))
+      ];
+    }
+
+    async function buildAdvancedPlanningResult(items, wantedLayers, mode, capacityTypes, calculation, onProgress) {
+      const started = performance.now();
+      const budgetMs = advancedTimeLimitSeconds * 1000;
+      const calc = calculation || { jobId: updateJobId, cancelled: false, allowYield: true, planCache: new Map() };
+      const oldDeadline = calc.deadline;
+      const oldCallback = calc.onFullCandidate;
+      const allIds = new Set(items.map(item => item.baseId));
+      const groupingRelevant = new Set(items.map(item => normalizeOrderRef(item.orderRef))).size > 1 ||
+        (items.some(item => item.cargoClass === 'hazardous') && items.some(item => item.cargoClass !== 'hazardous'));
+      let usedFastPath = false;
+      const capacityRows = capacityTypes.map(type => ({ type, value: '-' }));
+      let best = buildEmergencyOneItemPerBinSolution(items, wantedLayers, mode, calc);
+      let hitDeadline = false;
+      let candidates = 0;
+      const consider = candidate => {
+        if (!candidate) return;
+        const candidateItems = [...candidate.bins.flatMap(bin => bin.items), ...(candidate.unplaced || [])];
+        if (candidateItems.length !== items.length || new Set(candidateItems.map(i => i.baseId)).size !== allIds.size || candidateItems.some(i => !allIds.has(i.baseId))) return;
+        if (els.requireSeparateOrders.checked && candidate.bins.some(bin => new Set(bin.items.map(i => normalizeOrderRef(i.orderRef))).size > 1)) return;
+        const clean = { ...candidate, mode, bins: candidate.bins.filter(bin => bin.items.length), unplaced: candidate.unplaced || [] };
+        candidates++;
+        if (isSolutionBetter(clean, best, items.length)) best = cloneSolution(clean);
+      };
+      const layoutReserveMs = Math.min(1500, budgetMs * 0.18);
+      calc.deadline = started + budgetMs - layoutReserveMs;
+      calc.onFullCandidate = consider;
+      calc.maxCylinderCandidatePoints = Math.min(calc.maxCylinderCandidatePoints || 700, items.length > 80 ? 360 : 700);
+      const progress = () => { if (onProgress) onProgress(Math.min(.97, (performance.now() - started) / budgetMs)); };
+      const fixedEquipmentSearch = async () => {
+        if (!best.bins.length || !groupingRelevant) return;
+        const orders = buildGroupedItemOrders(items);
+        for (let i = 0; i < orders.length; i++) {
+          checkCalculation(calc);
+          const binOrders = i % 2 ? [...best.bins].reverse() : best.bins;
+          const candidate = await packIntoBins(binOrders.map(bin => createEmptyBin(bin.type)), orders[i], i % 2 ? 'TIGHT' : 'BLF', best.type, wantedLayers, false, { calculation: calc, onProgress: progress });
+          consider(candidate);
+          if (candidate.unplaced.length === 0) {
+            const shrunk = await shrinkBinsToSmallestPossibleType(candidate, wantedLayers, mode, { calculation: calc, quick: true });
+            consider(shrunk);
+          }
+          await calculationCheckpoint(calc, progress, null, true);
+        }
+      };
+      try {
+        groupingPreferenceSearch = false;
+        if (items.length) {
+          // A complete geometric baseline comes first; later timeouts cannot discard it.
+          const seed = await solveOpenBins3D(items, getLargestContainerType(mode), wantedLayers, {
+            calculation: calc, randomOrders: 0, maxOrders: 1, heuristics: ['BLF'], onProgress: progress
+          });
+          consider(seed);
+          consider(await shrinkBinsToSmallestPossibleType(seed, wantedLayers, mode, { calculation: calc, quick: true }));
+          if (itemsAreIdentical(items) || (isCylinderMode() && itemsShareFastCylinderGeometry(items, wantedLayers, mode))) {
+            const groups = new Map();
+            for (const item of items) {
+              const key = els.requireSeparateOrders.checked ? normalizeOrderRef(item.orderRef) : '*';
+              if (!groups.has(key)) groups.set(key, []);
+              groups.get(key).push(item);
+            }
+            const bins = [], unplaced = [];
+            for (const group of groups.values()) {
+              const result = itemsAreIdentical(group)
+                ? await buildFastIdenticalSolution(group, wantedLayers, mode, { calculation: calc, onProgress: progress })
+                : await buildFastGroupedCylinderSolution(group, wantedLayers, mode, { calculation: calc, onProgress: progress });
+              bins.push(...result.solution.bins); unplaced.push(...result.solution.unplaced);
+              for (const row of capacityRows) {
+                const template = result.templates.find(t => t.type === row.type);
+                if (template) row.value = `${Math.max(parseInt(row.value,10) || 0, template.effectiveCapacity || getSingleTemplateVariableWeightCapacity(template, group) || 0)} st`;
+              }
+            }
+            consider({ type: getLargestContainerType(mode), mode, bins, unplaced });
+            usedFastPath = true;
+          }
+          groupingPreferenceSearch = groupingRelevant;
+          await fixedEquipmentSearch();
+          // One quick per-type capacity estimate, after the actual load plan exists.
+          for (const row of capacityRows) {
+            if (row.value !== '-') continue;
+            const plan = await bestSingleContainerPlan3D(row.type, items, wantedLayers, 0, { calculation: calc, randomOrders: 0, maxOrders: 2, heuristics: ['BLF'] });
+            row.value = `${plan.placedUnits || 0} st`;
+          }
+          // General search may improve the equipment; keep the incumbent on every full run.
+          if (!usedFastPath || groupingRelevant) {
+          const refined = await buildOptimizedMixedSolution(items, wantedLayers, mode, { calculation: calc, onProgress: progress });
+          consider(refined);
+          await fixedEquipmentSearch();
+          }
+        }
+      } catch (error) {
+        if (!(error instanceof CalculationBudgetExceededError)) throw error;
+        hitDeadline = true;
+      } finally {
+        calc.deadline = oldDeadline ?? null;
+        calc.onFullCandidate = oldCallback;
+        groupingPreferenceSearch = false;
+      }
+      best = await refineSolutionLayout(best, wantedLayers, calc, { deadline: started + budgetMs });
+      best.algorithm = advancedMode || hasCargoGrouping(items) ? 'Avancerad \u00b7 order/godsklass' : (usedFastPath ? 'Snabb' : 'Optimerad');
+      best.budgetLimited = hitDeadline;
+      best.boundedSearch = false;
+      best.searchElapsedMs = performance.now() - started;
+      best.searchBudgetSeconds = advancedTimeLimitSeconds;
+      best.candidatesEvaluated = candidates;
+      best.groupingPolicy = { separateOrders: els.requireSeparateOrders.checked, preferHazardous: els.preferHazardous.checked };
+      if (onProgress) onProgress(1);
+      return { solution: best, capacityRows };
+    }
+
+    function updateGroupingSummary(solution) {
+      if (!solution || !solution.bins?.some(bin => bin.items.length)) { els.groupingSummary.textContent = ''; return; }
+      const m = groupingMetrics(solution);
+      const rule = els.requireSeparateOrders.checked ? 'Egna containers per order kr\u00e4vs.' : 'Orderblandning till\u00e5ten.';
+      els.groupingSummary.textContent = `${m.hazardousContainers} hazardous-container(s) \u00b7 ${m.generalOnlyContainers} enbart general \u00b7 ${m.orderSplits} ordersplit. ${rule}`;
+    }
+
+    function setAdvancedMode(enabled, markDirty = false) {
+      if (exportInProgress) return;
+      cancelSafeDrag();
+      advancedMode = Boolean(enabled);
+      els.advancedMode.checked = advancedMode;
+      els.advancedOptions.hidden = !advancedMode;
+      document.body.classList.toggle('is-advanced', advancedMode);
+      if (!advancedMode) selectedCargoId = null;
+      updateManualModeUi(); updateManualEditor(); updateCalculateButtonState();
+      // This is a UI mode switch. Existing rules and valid placements remain intact.
+    }
+
+    function setAdvancedTimeLimit(value, markDirty = true) {
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 1 || n > 300) {
+        els.advancedTimeLimit.value = advancedTimeLimitSeconds;
+        if (els.settingsStatus) els.settingsStatus.textContent = 'Tidsgr\u00e4nsen ska vara 1\u2013300 sekunder.';
+        return false;
+      }
+      const changed = advancedTimeLimitSeconds !== Math.round(n);
+      advancedTimeLimitSeconds = Math.round(n);
+      els.advancedTimeLimit.value = advancedTimeLimitSeconds;
+      try { localStorage.setItem(ADVANCED_SETTINGS_KEY, JSON.stringify({ timeLimitSeconds: advancedTimeLimitSeconds })); }
+      catch (_) { /* Private browsing may not permit local settings. */ }
+      if (changed && markDirty) handlePackingInputsChanged();
+      if (els.settingsStatus) els.settingsStatus.textContent = 'Tidsgr\u00e4ns sparad lokalt.';
+      return true;
+    }
+
+    function initializeAdvancedFeatures() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(ADVANCED_SETTINGS_KEY) || '{}');
+        if (saved.timeLimitSeconds >= 1 && saved.timeLimitSeconds <= 300) advancedTimeLimitSeconds = Math.round(saved.timeLimitSeconds);
+      } catch (_) { /* Safe defaults. */ }
+      els.advancedTimeLimit.value = advancedTimeLimitSeconds;
+      els.advancedMode.addEventListener('change', () => setAdvancedMode(els.advancedMode.checked));
+      els.groupSeparator.addEventListener('change', () => { els.customSeparator.hidden = els.groupSeparator.value !== 'custom'; });
+      els.requireSeparateOrders.addEventListener('change', handlePackingInputsChanged);
+      els.preferHazardous.addEventListener('change', handlePackingInputsChanged);
+      els.advancedTimeLimit.addEventListener('change', () => setAdvancedTimeLimit(els.advancedTimeLimit.value));
+      els.resetContainerSettingsBtn.addEventListener('click', () => setAdvancedTimeLimit(12));
+      els.showManifestBtn.addEventListener('click', openManifest);
+      els.manifestCloseBtn.addEventListener('click', closeManifest);
+      els.manifestModal.addEventListener('click', event => { if (event.target.matches('[data-manifest-close]')) closeManifest(); });
+      els.manifestFilter.addEventListener('change', renderManifest);
+      els.exportExcelBtn.addEventListener('click', exportManifestXlsx);
+      els.manifestExportBtn.addEventListener('click', exportManifestXlsx);
+      els.manualDeselectBtn.addEventListener('click', () => { cancelSafeDrag(); selectedCargoId = null; updateManualEditor(); });
+      els.manualApplyBtn.addEventListener('click', applyManualCoordinates);
+      els.manualRotateBtn.addEventListener('click', () => rotatePalletFromHit(findSelectedCargoHit()));
+      els.manualUndoBtn.addEventListener('click', () => restoreManualHistory(false));
+      els.manualRedoBtn.addEventListener('click', () => restoreManualHistory(true));
+      renderer.domElement.addEventListener('lostpointercapture', event => { if (palletDragState?.pointerId === event.pointerId) cancelSafeDrag(); });
+      window.addEventListener('blur', cancelSafeDrag);
+      window.addEventListener('keydown', event => {
+        if (event.ctrlKey && event.altKey && (event.code === 'KeyA' || event.key.toLowerCase() === 'a')) {
+          if (!event.repeat) setAdvancedMode(!advancedMode);
+          event.preventDefault(); return;
+        }
+        if (event.key === 'Escape') {
+          if (!els.manifestModal.hidden) closeManifest();
+          else if (palletDragState) cancelSafeDrag();
+          else { selectedCargoId = null; updateManualEditor(); }
+          return;
+        }
+        const editing = event.target.closest?.('input,textarea,select,[contenteditable="true"]');
+        if (editing || !advancedMode || !els.settingsModal.hidden || !els.manifestModal.hidden) return;
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); restoreManualHistory(event.shiftKey); }
+        else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); restoreManualHistory(true); }
+        else if (!event.ctrlKey && !event.altKey && event.key.toLowerCase() === 'r' && selectedCargoId) { event.preventDefault(); rotatePalletFromHit(findSelectedCargoHit()); }
+      });
+    }
+
+    // v8.3 transactional manual editor. A drag never mutates the solution.
+    function canEditManually() {
+      return advancedMode && !isPackingDirty() && Boolean(lastRenderedSolution) &&
+        !calculationRunning && !activeCalculation && !exportInProgress;
+    }
+
+    function findSelectedCargoHit() {
+      if (!selectedCargoId) return null;
+      return interactivePalletMeshes.find(mesh => mesh.userData.placement?.baseId === selectedCargoId)?.userData || null;
+    }
+
+    function manualFeedback(text, success = false) {
+      els.manualFeedback.textContent = text;
+      els.manualFeedback.classList.toggle('warning', !success);
+      els.manualFeedback.classList.toggle('success', success);
+    }
+
+    function updateManualEditor() {
+      if (!els.manualEditor) return;
+      const hit = findSelectedCargoHit();
+      const canEdit = canEditManually();
+      els.manualEditor.hidden = !advancedMode || (!hit && !manualUndoStack.length && !manualRedoStack.length);
+      for (const mesh of interactivePalletMeshes) {
+        if (palletDragState?.mesh === mesh) continue;
+        const base = mesh.material?.userData?.baseColor ?? getCargoBaseColor(mesh.userData.placement);
+        mesh.material?.color?.setHex(mesh.userData.placement?.baseId === selectedCargoId ? PALLET_HOVER_COLOR : base);
+      }
+      els.manualUndoBtn.disabled = !canEdit || !manualUndoStack.length;
+      els.manualRedoBtn.disabled = !canEdit || !manualRedoStack.length;
+      const placement = hit?.placement;
+      const item = placement?.item || hit?.item;
+      els.manualApplyBtn.disabled = !canEdit || !hit;
+      els.manualRotateBtn.disabled = !canEdit || !hit || isCylinder(placement) || Boolean(item?.lockRotation);
+      if (!hit) { els.selectedCargoLabel.textContent = 'V\u00e4lj ett kolli i 3D-vyn eller lastlistan.'; return; }
+      els.selectedCargoLabel.textContent = `Kolli ${cargoUnitLabel(placement.baseId)} \u00b7 ${normalizeOrderRef(item.orderRef)} \u00b7 ${cargoClassLabel(item.cargoClass)}`;
+      els.manualTarget.replaceChildren();
+      lastRenderedSolution.bins.forEach((bin, i) => els.manualTarget.add(new Option(`${i + 1} \u00b7 ${formatContainerType(bin.type)}`, String(i))));
+      const idx = lastRenderedSolution.bins.indexOf(hit.bin);
+      els.manualTarget.value = String(Math.max(0, idx));
+      els.manualX.value = formatNumberForRowInput(placement.x || 0);
+      els.manualY.value = formatNumberForRowInput(placement.y || 0);
+      els.manualZ.value = formatNumberForRowInput(placement.z || 0);
+      if (!canEdit) manualFeedback('Ber\u00e4kna uppdaterad packning innan du redigerar.');
+    }
+
+    function snapshotManualSolution() {
+      // cloneSolution omits spatial/Three.js caches; structuredClone separates item metadata.
+      return structuredClone(cloneSolution(lastRenderedSolution));
+    }
+
+    function storeManualUndo(snapshot) {
+      manualUndoStack.push(snapshot);
+      if (manualUndoStack.length > 40) manualUndoStack.shift();
+      manualRedoStack.length = 0;
+    }
+
+    function validateManualSolution(solution) {
+      const ids = new Set();
+      for (const bin of solution.bins) {
+        for (const p of bin.placements) {
+          if (ids.has(p.baseId)) return false;
+          ids.add(p.baseId);
+          if (!canPlaceInBin(bin, p.item, p.x, p.y, p.z, p.L, p.W, getWantedLayers(), { ignorePlacements: new Set([p]), allowFlatRackOverWidth: true })) return false;
+        }
+      }
+      for (const item of solution.unplaced || []) { if (ids.has(item.baseId)) return false; ids.add(item.baseId); }
+      return true;
+    }
+
+    function commitSafePlacement(hit, targetBin, proposed, text = 'Kollit flyttades. Placeringen \u00e4r validerad.') {
+      if (!canEditManually() || !hit?.placement || !targetBin || !proposed) return false;
+      if (hit.bin && placementHasSupportedChildren(hit.bin, hit.placement)) {
+        manualFeedback('Kollit b\u00e4r andra kollin. Flytta det \u00f6versta f\u00f6rst.'); return false;
+      }
+      const item = hit.placement.item || hit.item;
+      const ignored = hit.bin === targetBin ? new Set([hit.placement]) : new Set();
+      const support = canPlaceInBin(targetBin, item, proposed.x, proposed.y, proposed.z, proposed.L, proposed.W, getWantedLayers(), { ignorePlacements: ignored, allowFlatRackOverWidth: true });
+      if (!support) {
+        manualFeedback(canShareOrderInBin(targetBin, item, { ignorePlacements: ignored })
+          ? 'Flytten avvisades: kontrollera utrymme, kollision, staplingsst\u00f6d och maxvikt.'
+          : 'Flytten avvisades: denna container tillh\u00f6r en annan order.');
+        return false;
+      }
+      const old = hit.placement;
+      if (!hit.isUnplaced && hit.bin === targetBin && ['x','y','z','L','W'].every(key => Math.abs(old[key] - proposed[key]) < EPS)) {
+        manualFeedback('Placeringen \u00e4r of\u00f6r\u00e4ndrad.', true); return true;
+      }
+      const snapshot = snapshotManualSolution();
+      if (hit.isUnplaced) removeUnplacedItemFromSolution(lastRenderedSolution, item);
+      else removePlacementFromBin(hit.bin, hit.placement);
+      const placement = { ...old, ...proposed, item, baseId: item.baseId, shape: item.shape, D: item.D, isUnplaced: false, layer: support.layer, supportId: support.support?.baseId || null, isOverWidth: support.overWidth };
+      placePlacementInBin(targetBin, placement);
+      lastRenderedSolution.bins = lastRenderedSolution.bins.filter(bin => bin.placements.length > 0);
+      if (!validateManualSolution(lastRenderedSolution)) {
+        build3DSceneFromSolution(snapshot);
+        manualFeedback('Flytten kunde inte valideras. Den tidigare packningen har \u00e5terst\u00e4llts.');
+        return false;
+      }
+      storeManualUndo(snapshot);
+      finishManualCommit(text);
+      return true;
+    }
+
+    function finishManualCommit(text) {
+      lastRenderedSolution.manualEdited = true;
+      lastRenderedSolution.budgetLimited = false;
+      lastRenderedSolution.algorithm = 'Manuell';
+      manualMode = true; manualModeInputDirty = false;
+      build3DSceneFromSolution(lastRenderedSolution);
+      manualSolution = lastRenderedSolution;
+      updateManualSolutionMessage(lastRenderedSolution);
+      updateManualModeUi(); persistCurrentManualModeState(); updateCalculateButtonState(); updateManualEditor();
+      if (!els.manifestModal.hidden) renderManifest();
+      manualFeedback(text, true);
+    }
+
+    function restoreManualHistory(redo) {
+      if (!canEditManually() || palletDragState) return;
+      const source = redo ? manualRedoStack : manualUndoStack;
+      const target = redo ? manualUndoStack : manualRedoStack;
+      if (!source.length) return;
+      target.push(snapshotManualSolution());
+      const restored = source.pop();
+      manualMode = Boolean(restored.manualEdited);
+      build3DSceneFromSolution(restored);
+      manualSolution = manualMode ? lastRenderedSolution : null;
+      if (manualMode) updateManualSolutionMessage(lastRenderedSolution);
+      else { els.reqText.innerText = formatContainerCounts(lastRenderedSolution.bins, lastRenderedSolution.mode); updateSolutionStats(lastRenderedSolution); }
+      updateManualModeUi(); updateCalculateButtonState(); updateManualEditor();
+      if (!els.manifestModal.hidden) renderManifest();
+      manualFeedback(redo ? '\u00c4ndringen gjordes om.' : '\u00c4ndringen \u00e5ngrades.', true);
+    }
+
+    function applyManualCoordinates() {
+      if (!canEditManually()) return;
+      const hit = findSelectedCargoHit();
+      const bin = lastRenderedSolution.bins[Number(els.manualTarget.value)];
+      const values = [els.manualX, els.manualY, els.manualZ].map(el => el.value.trim() === '' ? NaN : Number(el.value));
+      if (!hit || !bin || !values.every(Number.isFinite)) { manualFeedback('Ange giltiga X-, Y- och Z-koordinater.'); return; }
+      commitSafePlacement(hit, bin, { ...hit.placement, x: values[0], y: values[1], z: values[2] });
+    }
+
+    function safeDragPlacement(bin, item, source, x, y, preferredZ, ignorePlacements) {
+      const step = els.manualSnap.checked ? 1 : .1;
+      const rawX = Math.round(x / step) * step;
+      const rawY = Math.round(y / step) * step;
+      const bounds = getManualPlacementBounds(bin.box, source);
+      if (!manualBoundsAreUsable(bounds)) return null;
+      // Only snap to nearby edges (8 cm), never to the other side of a container.
+      const xs = [rawX], ys = [rawY];
+      const addNear = (arr, value, raw) => { if (Math.abs(raw - value) <= 8 + EPS && !arr.some(v => Math.abs(v - value) < EPS)) arr.push(value); };
+      addNear(xs, bounds.xMin, rawX); addNear(xs, bounds.xMax, rawX);
+      addNear(ys, bounds.yMin, rawY); addNear(ys, bounds.yMax, rawY);
+      for (const p of bin.placements) {
+        if (ignorePlacements.has(p)) continue;
+        [p.x + p.L, p.x - source.L, p.x].forEach(v => addNear(xs, v, rawX));
+        [p.y + p.W, p.y - source.W, p.y].forEach(v => addNear(ys, v, rawY));
+      }
+      const heights = [preferredZ, 0];
+      if (getWantedLayers() > 1) {
+        for (const p of bin.placements) {
+          if (!ignorePlacements.has(p) && pointInsidePlacement2D(rawX + source.L/2, rawY + source.W/2, p)) heights.push(p.z + p.H);
+        }
+      }
+      let best = null;
+      const nearX = xs.sort((a,b) => Math.abs(a-rawX)-Math.abs(b-rawX)).slice(0,8);
+      const nearY = ys.sort((a,b) => Math.abs(a-rawY)-Math.abs(b-rawY)).slice(0,8);
+      for (const z of [...new Set(heights)]) for (const nx of nearX) for (const ny of nearY) {
+        const support = canPlaceInBin(bin, item, nx, ny, z, source.L, source.W, getWantedLayers(), { ignorePlacements, allowFlatRackOverWidth: true });
+        if (!support) continue;
+        const score = [Math.abs(nx - rawX) + Math.abs(ny - rawY), Math.abs(z - preferredZ), z];
+        const candidate = { ...source, x:nx, y:ny, z, layer:support.layer, supportId:support.support?.baseId || null, item };
+        if (!best || lexicographicallyBetter(score, best.score)) best = { score, placement:candidate };
+      }
+      return best?.placement || null;
+    }
+
+    function beginSafeDrag(event) {
+      const hit = palletPointerDownHit;
+      if (!canEditManually() || !hit?.mesh || isCameraInteractionMode()) return;
+      if (hit.bin && placementHasSupportedChildren(hit.bin, hit.placement)) {
+        manualFeedback('Kollit b\u00e4r andra kollin. Flytta \u00f6versta kollit f\u00f6rst.');
+        cancelPalletPointerDown(); return;
+      }
+      const center = new THREE.Vector3(); hit.mesh.getWorldPosition(center);
+      const plane = new THREE.Plane(new THREE.Vector3(0,1,0), -center.y);
+      const startPoint = getPointerWorldPointOnPlane({ clientX:palletPointerDownClientX, clientY:palletPointerDownClientY }, plane);
+      if (!startPoint) return;
+      palletDragState = {
+        type:'safe', hit, mesh:hit.mesh, pointerId:event.pointerId,
+        startPosition:hit.mesh.position.clone(), plane, offset:center.clone().sub(startPoint),
+        previousControlsEnabled:controls.enabled, currentDrop:null,
+        baseColor:hit.mesh.material.color.getHex(), baseOpacity:hit.mesh.material.opacity, baseTransparent:Boolean(hit.mesh.material.transparent)
+      };
+      controls.enabled = false;
+      hit.mesh.material.transparent = true; hit.mesh.material.opacity = .72; hit.mesh.material.needsUpdate = true;
+      renderer.domElement.style.cursor = 'grabbing';
+      updateCalculateButtonState();
+    }
+
+    function updateSafeDrag(event) {
+      const state = palletDragState;
+      if (!state || state.type !== 'safe') return;
+      const point = getPointerWorldPointOnPlane(event, state.plane);
+      if (!point) { state.currentDrop = null; return; }
+      const center = point.add(state.offset);
+      const item = state.hit.placement.item || state.hit.item;
+      let drop = null;
+      for (const target of interactiveDropBins) {
+        const local = target.group.worldToLocal(center.clone());
+        if (local.x < -target.box.L/2 - EPS || local.x > target.box.L/2 + EPS || local.z < -target.box.W/2 - 8 || local.z > target.box.W/2 + 8) continue;
+        const ignored = target.bin === state.hit.bin ? new Set([state.hit.placement]) : new Set();
+        const x = local.x + target.box.L/2 - state.hit.placement.L/2;
+        const y = local.z + target.box.W/2 - state.hit.placement.W/2;
+        const preferredZ = target.bin === state.hit.bin ? state.hit.placement.z : 0;
+        const placement = safeDragPlacement(target.bin, item, state.hit.placement, x, y, preferredZ, ignored);
+        if (placement) { drop = { ...target, placement }; break; }
+      }
+      state.currentDrop = drop;
+      if (drop) {
+        const snapped = getContainerPlacementWorldCenter(drop.group, drop.box, drop.placement);
+        state.mesh.position.copy(state.mesh.parent.worldToLocal(snapped));
+        state.mesh.material.color.setHex(0x66d19e);
+        manualFeedback(`Giltig placering \u00b7 container ${lastRenderedSolution.bins.indexOf(drop.bin) + 1}. Sl\u00e4pp f\u00f6r att flytta.`, true);
+      } else {
+        state.mesh.position.copy(state.mesh.parent.worldToLocal(center));
+        state.mesh.material.color.setHex(0xff6b6b);
+        manualFeedback('Ogiltig placering. Sl\u00e4pp h\u00e4r eller tryck Esc f\u00f6r att beh\u00e5lla ursprungsl\u00e4get.');
+      }
+      event.preventDefault();
+    }
+
+    function stopSafeDragPreview() {
+      const state = palletDragState;
+      if (!state) return null;
+      palletDragState = null;
+      if (state.frame) cancelAnimationFrame(state.frame);
+      if (state.type === 'safe') {
+        state.mesh.position.copy(state.startPosition);
+        state.mesh.material.color.setHex(state.baseColor);
+        state.mesh.material.opacity = state.baseOpacity;
+        state.mesh.material.transparent = state.baseTransparent;
+        state.mesh.material.needsUpdate = true;
+      }
+      controls.enabled = state.previousControlsEnabled ?? freeCam;
+      renderer.domElement.style.cursor = '';
+      return state;
+    }
+
+    function cancelSafeDrag() {
+      const state = stopSafeDragPreview();
+      resetPalletPointerDownState();
+      if (state) { manualFeedback('Flytten avbr\u00f6ts. Ursprungsplaceringen beh\u00f6lls.', true); updateCalculateButtonState(); }
+    }
+
+
+
+
+
+
+
+    function queueSafeDrag(event) {
+      const state = palletDragState;
+      if (!state) return;
+      state.pendingPointer = { clientX:event.clientX, clientY:event.clientY, pointerId:event.pointerId, preventDefault(){} };
+      event.preventDefault();
+      if (state.frame) return;
+      state.frame = requestAnimationFrame(() => {
+        state.frame = null;
+        if (palletDragState === state) updateSafeDrag(state.pendingPointer);
+      });
+    }
+
+    // ------------------------------------------------------------------
+    // Per-unit manifest and dependency-free, genuine OOXML .xlsx export.
+    // Text cells are inline strings, never inferred formulas.
+    // ------------------------------------------------------------------
+    function cargoUnitLabel(baseId) { return String(baseId ?? '').replace(/^(imp|item|single)-/, ''); }
+
+    function getManifestRows(solution = lastRenderedSolution) {
+      const rows = [];
+      (solution?.bins || []).forEach((bin, index) => {
+        [...bin.placements].sort((a,b) => cargoUnitLabel(a.baseId).localeCompare(cargoUnitLabel(b.baseId), 'sv', { numeric:true })).forEach(p => {
+          const item = p.item;
+          rows.push({ baseId:p.baseId, unit:cargoUnitLabel(p.baseId), container:index+1, equipment:formatContainerType(bin.type), orderRef:normalizeOrderRef(item.orderRef), cargoClass:normalizeCargoClass(item.cargoClass), L:p.L, W:p.W, H:p.H, D:isCylinder(item) ? item.D : '', weight:itemHasKnownWeight(item) ? getItemWeight(item) : '', x:p.x, y:p.y, z:p.z, placed:true, locked:Boolean(item.lockRotation) });
+        });
+      });
+      for (const item of solution?.unplaced || []) {
+        const orientation = getUnplacedDisplayOrientation(item);
+        rows.push({ baseId:item.baseId, unit:cargoUnitLabel(item.baseId), container:'Ej placerad', equipment:'', orderRef:normalizeOrderRef(item.orderRef), cargoClass:normalizeCargoClass(item.cargoClass), L:orientation.L, W:orientation.W, H:item.H, D:isCylinder(item) ? item.D : '', weight:itemHasKnownWeight(item) ? getItemWeight(item) : '', x:'', y:'', z:'', placed:false, locked:Boolean(item.lockRotation) });
+      }
+      return rows;
+    }
+
+    function openManifest() {
+      if (isPackingDirty() || !lastRenderedSolution || calculationRunning || exportInProgress || palletDragState) return;
+      const rows = getManifestRows();
+      els.manifestFilter.replaceChildren(new Option('Alla containers', 'all'));
+      lastRenderedSolution.bins.forEach((bin, i) => els.manifestFilter.add(new Option(`Container ${i+1} \u00b7 ${formatContainerType(bin.type)}`, `bin:${i+1}`)));
+      els.manifestFilter.add(new Option('Endast hazardous', 'hazardous'));
+      els.manifestFilter.add(new Option('Endast general cargo', 'general'));
+      if (rows.some(row => !row.placed)) els.manifestFilter.add(new Option('Ej placerade', 'unplaced'));
+      for (const ref of new Set(rows.map(row => row.orderRef))) els.manifestFilter.add(new Option(`Order: ${ref}`, `order:${ref}`));
+      renderManifest(); els.manifestModal.hidden = false; els.manifestCloseBtn.focus();
+    }
+
+    function closeManifest() { els.manifestModal.hidden = true; els.showManifestBtn.focus(); }
+
+    function renderManifest() {
+      const filter = els.manifestFilter.value;
+      const rows = getManifestRows().filter(row => filter === 'all' ||
+        filter === `bin:${row.container}` || filter === `order:${row.orderRef}` ||
+        filter === row.cargoClass || (filter === 'unplaced' && !row.placed));
+      els.manifestBody.replaceChildren();
+      const fragment = document.createDocumentFragment();
+      for (const row of rows) {
+        const tr = document.createElement('tr');
+        const values = [row.unit, row.container, row.equipment || '-', row.orderRef, cargoClassLabel(row.cargoClass), `${formatNumberForRowInput(row.L)} \u00d7 ${formatNumberForRowInput(row.W)} \u00d7 ${formatNumberForRowInput(row.H)}`, row.weight === '' ? 'Ok\u00e4nd' : formatNumberForRowInput(row.weight), row.placed ? [row.x,row.y,row.z].map(formatNumberForRowInput).join(' / ') : '-'];
+        values.forEach((value, i) => {
+          const td = document.createElement('td'); td.textContent = String(value);
+          if (i === 4) td.className = row.cargoClass === 'hazardous' ? 'cargo-haz' : 'cargo-general';
+          tr.appendChild(td);
+        });
+        const action = document.createElement('td');
+        if (advancedMode) {
+          const button = document.createElement('button'); button.type='button'; button.className='secondary-button'; button.textContent='Redigera';
+          button.addEventListener('click', () => { selectedCargoId = row.baseId; els.manifestModal.hidden = true; updateManualEditor(); });
+          action.appendChild(button);
+        }
+        tr.appendChild(action); fragment.appendChild(tr);
+      }
+      els.manifestBody.appendChild(fragment);
+    }
+
+    function xmlText(value) {
+      return String(value ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+    }
+
+    function excelColumn(index) {
+      let text = ''; let n = index + 1;
+      while (n) { n--; text = String.fromCharCode(65 + n % 26) + text; n = Math.floor(n/26); }
+      return text;
+    }
+
+    function buildWorksheetXml(rows, widths, options = {}) {
+      const ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+      const count = Math.max(1, rows[0]?.length || 1);
+      const end = `${excelColumn(count-1)}${Math.max(1,rows.length)}`;
+      const sheetRows = rows.map((row, index) => {
+        const cells = row.map((raw, col) => {
+          const value = raw && typeof raw === 'object' ? raw.value : raw;
+          const formula = raw && typeof raw === 'object' ? raw.formula : null;
+          const ref = `${excelColumn(col)}${index+1}`;
+          const style = index === 0 ? 1 : formula ? 4 : typeof value === 'number' && !Number.isInteger(value) ? 3 : 2;
+          if (formula) return `<c r="${ref}" s="${style}"><f>${xmlText(formula.replace(/^=/,''))}</f><v>${Number.isFinite(Number(value)) ? Number(value) : 0}</v></c>`;
+          if (typeof value === 'number' && Number.isFinite(value)) return `<c r="${ref}" s="${style}"><v>${value}</v></c>`;
+          if (value === '' || value === null || value === undefined) return `<c r="${ref}" s="${style}"/>`;
+          return `<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xmlText(value)}</t></is></c>`;
+        }).join('');
+        const lineCount = Math.max(1, ...row.map((raw, col) => {
+          const value = raw && typeof raw === 'object' ? raw.value : raw;
+          return typeof value === 'string' ? Math.ceil(value.length / Math.max(8, (widths[col] || 20) - 3)) : 1;
+        }));
+        const height = index === 0 ? 32 : Math.max(22, lineCount * 15 + 7);
+        return `<row r="${index+1}" ht="${height}" customHeight="1">${cells}</row>`;
+      }).join('');
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="${ns}"><dimension ref="A1:${end}"/><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="22"/><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${sheetRows}</sheetData>${options.filter === false ? '' : `<autoFilter ref="A1:${end}"/>`}<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+    }
+
+    function zipStore(files) {
+      const enc = new TextEncoder();
+      const table = new Uint32Array(256);
+      for (let i=0;i<256;i++) { let c=i; for(let j=0;j<8;j++) c=(c&1) ? 0xedb88320^(c>>>1) : c>>>1; table[i]=c>>>0; }
+      const crc = bytes => { let c=0xffffffff; for(const b of bytes)c=table[(c^b)&255]^(c>>>8); return (c^0xffffffff)>>>0; };
+      const parts=[], central=[]; let offset=0, centralSize=0;
+      for(const [name, content] of files) {
+        const filename=enc.encode(name); const bytes=enc.encode(content); const checksum=crc(bytes);
+        const local=new Uint8Array(30+filename.length); const lv=new DataView(local.buffer);
+        lv.setUint32(0,0x04034b50,true); lv.setUint16(4,20,true); lv.setUint16(6,0x800,true); lv.setUint16(12,33,true);
+        lv.setUint32(14,checksum,true); lv.setUint32(18,bytes.length,true); lv.setUint32(22,bytes.length,true); lv.setUint16(26,filename.length,true); local.set(filename,30);
+        const cd=new Uint8Array(46+filename.length); const cv=new DataView(cd.buffer);
+        cv.setUint32(0,0x02014b50,true); cv.setUint16(4,20,true); cv.setUint16(6,20,true); cv.setUint16(8,0x800,true); cv.setUint16(14,33,true);
+        cv.setUint32(16,checksum,true); cv.setUint32(20,bytes.length,true); cv.setUint32(24,bytes.length,true); cv.setUint16(28,filename.length,true); cv.setUint32(42,offset,true); cd.set(filename,46);
+        parts.push(local,bytes); central.push(cd); offset+=local.length+bytes.length; centralSize+=cd.length;
+      }
+      const end=new Uint8Array(22); const ev=new DataView(end.buffer); ev.setUint32(0,0x06054b50,true); ev.setUint16(8,files.length,true); ev.setUint16(10,files.length,true); ev.setUint32(12,centralSize,true); ev.setUint32(16,offset,true);
+      return new Blob([...parts,...central,end], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    }
+
+    function buildManifestWorkbook(solution = lastRenderedSolution) {
+      const manifest = getManifestRows(solution);
+      const header = ['Unit','Container','Equipment','Order ref','Cargo class','L (cm)','W (cm)','H (cm)','Diameter (cm)','Weight (kg)'];
+      // Keep every unit. Unassigned units have a blank Container, not a hidden status column.
+      const data = [header, ...manifest.map(r => [r.unit, r.placed ? r.container : '', r.equipment, r.orderRef,
+        cargoClassLabel(r.cargoClass), r.L, r.W, r.H, r.D, r.weight])];
+      const last = Math.max(2, data.length);
+      const range = col => `'Loading list'!$${col}$2:$${col}$${last}`;
+      const formula = (formula, value) => ({ formula, value });
+      const containers = [['Container','Equipment','Units','Hazardous','General cargo','Order refs','Known weight (kg)','Unknown weight (units)']];
+      (solution?.bins || []).forEach((bin, i) => {
+        const n = i + 2, subset = manifest.filter(r => r.placed && r.container === i + 1);
+        const hazardous = subset.filter(r => r.cargoClass === 'hazardous').length;
+        containers.push([i+1, formatContainerType(bin.type),
+          formula(`COUNTIF(${range('B')},A${n})`, subset.length),
+          formula(`COUNTIFS(${range('B')},A${n},${range('E')},"Hazardous")`, hazardous),
+          formula(`C${n}-D${n}`, subset.length-hazardous),
+          [...new Set(subset.map(r => r.orderRef))].join(', '),
+          formula(`SUMIF(${range('B')},A${n},${range('J')})`, subset.reduce((sum,r) => sum+(Number(r.weight)||0),0)),
+          formula(`COUNTIFS(${range('B')},A${n},${range('J')},"")`, subset.filter(r => r.weight === '').length)]);
+      });
+      const orders = [['Order ref','Units','Containers','Hazardous','General cargo','Known weight (kg)','Unknown weight (units)']];
+      [...new Set(manifest.map(r => r.orderRef))].forEach((ref, i) => {
+        const n = i + 2, subset = manifest.filter(r => r.orderRef === ref);
+        const hazardous = subset.filter(r => r.cargoClass === 'hazardous').length;
+        // Exact comparisons preserve order refs containing Excel wildcard characters.
+        orders.push([ref,
+          formula(`SUMPRODUCT(EXACT(${range('D')},A${n})*1)`, subset.length),
+          [...new Set(subset.filter(r => r.placed).map(r => r.container))].join(', '),
+          formula(`SUMPRODUCT(EXACT(${range('D')},A${n})*(${range('E')}="Hazardous"))`, hazardous),
+          formula(`B${n}-D${n}`, subset.length-hazardous),
+          formula(`SUMPRODUCT(EXACT(${range('D')},A${n})*${range('J')})`, subset.reduce((sum,r) => sum+(Number(r.weight)||0),0)),
+          formula(`SUMPRODUCT(EXACT(${range('D')},A${n})*(${range('J')}=""))`, subset.filter(r => r.weight === '').length)]);
+      });
+      const sheets = [
+        {name:'Loading list', rows:data, widths:[10,14,16,36,19,13,13,13,16,16]},
+        {name:'Containers', rows:containers, widths:[14,17,12,15,18,48,21,24]},
+        {name:'Orders', rows:orders, widths:[36,12,23,15,18,21,24]}
+      ];
+      const base='http://schemas.openxmlformats.org';
+      const files=[];
+      const add=(name,content)=>files.push([name,content]);
+      add('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8"?><Types xmlns="${base}/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`);
+      add('_rels/.rels',`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="${base}/package/2006/relationships"><Relationship Id="rId1" Type="${base}/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+      add('xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="${base}/spreadsheetml/2006/main" xmlns:r="${base}/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>${sheets.map((sheet,i)=>`<sheet name="${xmlText(sheet.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`);
+      add('xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="${base}/package/2006/relationships">${sheets.map((_,i)=>`<Relationship Id="rId${i+1}" Type="${base}/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length+1}" Type="${base}/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+      add('xl/styles.xml',`<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="${base}/spreadsheetml/2006/main"><fonts count="4"><font><sz val="11"/><name val="Calibri"/><color rgb="FF303844"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><sz val="11"/><color rgb="FF16754C"/><name val="Calibri"/></font><font><sz val="11"/><color rgb="FF111111"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF193550"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="2" fontId="2" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
+      sheets.forEach((sheet,i)=>add(`xl/worksheets/sheet${i+1}.xml`,buildWorksheetXml(sheet.rows,sheet.widths,{filter:sheet.filter})));
+      return zipStore(files);
+    }
+
+    function exportManifestXlsx() {
+      if (!lastRenderedSolution || isPackingDirty() || calculationRunning || exportInProgress || palletDragState) return;
+      try {
+        const blob = buildManifestWorkbook();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href=url;
+        a.download=`Loading-List_v8.3.1_${formatPdfFileTimestamp(new Date())}.xlsx`;
+        document.body.appendChild(a); a.click(); a.remove();
+        window.setTimeout(()=>URL.revokeObjectURL(url), 1000);
+        const unassigned = lastRenderedSolution.unplaced?.length || 0;
+        els.importMsg.innerHTML = unassigned
+          ? `<span class="warning">Excel exporterad. ${unassigned} kollin saknar container och har tom containercell i Loading list.</span>`
+          : '<span class="success">Excel exporterad: Loading list, Containers och Orders.</span>';
+      } catch(error) { els.importMsg.innerHTML=`<span class="warning">Kunde inte exportera Excel: ${escapeHtml(error.message)}</span>`; }
+    }
+
+    let exportUiSnapshot = null;
+    function lockExportUi(locked) {
+      if (locked) {
+        exportUiSnapshot = [...document.querySelectorAll('input,textarea,select,button')].map(el => ({ el, disabled:el.disabled }));
+        for (const {el} of exportUiSnapshot) el.disabled = true;
+      } else if (exportUiSnapshot) {
+        for (const {el,disabled} of exportUiSnapshot) el.disabled = disabled;
+        exportUiSnapshot = null;
+      }
+    }
+
+    function encodeCsvOrderRef(value) {
+      const text = String(value ?? '');
+      return /^[\s]*[=+\-@']/.test(text) ? "'" + text : text;
+    }
+
+    function decodeCsvOrderRef(value, encoding) {
+      const text = String(value ?? '');
+      return encoding === 'apostrophe-v1' && text.startsWith("'") ? text.slice(1) : text;
+    }
+
+    initializeAdvancedFeatures();
     loadContainerDimensionSettings();
     loadContainerTypeSelections();
     renderContainerSettingsInputs();
