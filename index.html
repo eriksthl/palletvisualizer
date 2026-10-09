@@ -10713,7 +10713,7 @@
       els.requireSeparateOrders.addEventListener('change', handlePackingInputsChanged);
       els.preferHazardous.addEventListener('change', handlePackingInputsChanged);
       els.advancedTimeLimit.addEventListener('change', () => setAdvancedTimeLimit(els.advancedTimeLimit.value));
-      els.resetContainerSettingsBtn.addEventListener('click', () => setAdvancedTimeLimit(12));
+      els.resetContainerSettingsBtn.addEventListener('click', () => setAdvancedTimeLimit(60));
       els.showManifestBtn.addEventListener('click', openManifest);
       els.manifestCloseBtn.addEventListener('click', closeManifest);
       els.manifestModal.addEventListener('click', event => { if (event.target.matches('[data-manifest-close]')) closeManifest(); });
