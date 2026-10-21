@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Eriks Packningskalkylator v8.3.1</title>
+  <title>Eriks Packningskalkylator v8.4.4</title>
   <link rel="icon" type="image/png" href="./Bertling-small-logotype-transparent.png">
   <script type="importmap">
     {
@@ -73,6 +73,9 @@
       letter-spacing: 0.35px;
     }
 
+    .algorithm-reference { color:inherit; text-decoration:none; }
+    .algorithm-reference:hover, .algorithm-reference:focus-visible { color:var(--accent); text-decoration:underline; text-underline-offset:2px; }
+
     .settings-button {
       flex: 0 0 auto;
       display: inline-flex;
@@ -95,6 +98,29 @@
     }
 
     .field { margin-bottom: 12px; }
+    .import-dropdown { border:1px solid #2a3560; border-radius:7px; padding:10px; margin:10px 0; }
+    .import-dropdown > summary { cursor:pointer; font-size:12px; color:var(--sub); }
+    .import-dropdown[open] > summary { margin-bottom:10px; }
+    .import-dropdown .field { margin-bottom:0; }
+    .action-row.result-actions, .action-row.csv-actions {
+      display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; margin-top:-5px;
+    }
+    .action-row.result-actions > button, .action-row.csv-actions > button { width:100%; min-width:0; }
+    .cargo-row-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:23px; margin-bottom:8px; }
+    .cargo-row-heading > label { margin:0; }
+    .unit-switch-slot { display:inline-flex; }
+    .unit-switch { position:relative; display:inline-grid; grid-template-columns:1fr 1fr; width:68px; height:23px;
+      border:1px solid #344267; border-radius:7px; padding:2px; background:#0b1130; color:var(--sub); font-family:inherit; font-size:10px; cursor:pointer; }
+    .unit-switch::before { content:''; position:absolute; top:2px; bottom:2px; left:2px; width:calc(50% - 2px);
+      border-radius:5px; background:var(--accent); transition:transform .15s ease; }
+    .unit-switch[aria-checked="true"]::before { transform:translateX(100%); }
+    .unit-switch > span { position:relative; z-index:1; font-family:inherit; font-size:10px; font-weight:600; line-height:17px; text-align:center; }
+    .unit-switch[aria-checked="false"] > span:first-child, .unit-switch[aria-checked="true"] > span:last-child { color:#061026; }
+    .unit-switch:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+    .loading-choice { pointer-events:auto; margin-top:14px; font-size:13px; line-height:1.5; }
+    .loading-choice p { margin:0 0 12px; }
+    .loading-choice .action-row { flex-wrap:wrap; }
+    .calculation-settings .field:last-child { margin-bottom:0; }
 
     .row {
       display: grid;
@@ -213,7 +239,7 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       padding: 4px;
-      border-radius: 999px;
+      border-radius: 8px;
       border: 1px solid #2a3560;
       background: #0b1130;
       overflow: hidden;
@@ -232,7 +258,7 @@
       padding: 8px 10px;
       text-align: center;
       cursor: pointer;
-      border-radius: 999px;
+      border-radius: 4px;
       font-size: 12px;
       color: var(--sub);
       text-transform: none;
@@ -253,7 +279,7 @@
       left: 4px;
       width: calc(50% - 4px);
       height: calc(100% - 8px);
-      border-radius: 999px;
+      border-radius: 4px;
       background: var(--accent);
       box-shadow: 0 2px 10px rgba(106,166,255,0.25);
       transition: transform 0.2s ease;
@@ -270,14 +296,21 @@
     .pallet-row-header,
     .pallet-row {
       display: grid;
-      grid-template-columns: 42px minmax(46px, 1fr) minmax(46px, 1fr) minmax(46px, 1fr) 52px 36px 32px;
+      grid-template-columns:var(--pallet-columns,62px minmax(46px,1fr) minmax(46px,1fr) minmax(46px,1fr) 54px 32px);
       gap: 6px;
       align-items: center;
     }
 
+    body.is-advanced .pallet-row-header, body.is-advanced .pallet-row {
+      grid-template-columns:var(--pallet-columns-advanced,62px minmax(46px,1fr) minmax(46px,1fr) minmax(46px,1fr) 54px 36px 32px);
+    }
+    .pallet-row-header [data-rotation-lock-header], .pallet-row .rotation-lock-cell { display:none; }
+    body.is-advanced .pallet-row-header [data-rotation-lock-header] { display:inline; }
+    body.is-advanced .pallet-row .rotation-lock-cell { display:inline-flex; }
+
     .pallet-row-header {
       margin-bottom: 5px;
-      padding: 0 1px;
+      padding: 0;
       color: var(--sub);
       font-size: 10px;
       text-transform: uppercase;
@@ -291,27 +324,52 @@
 
     .pallet-row input,
     .cylinder-row input {
+      min-width:0;
+      font-variant-numeric:tabular-nums;
       padding: 7px 6px;
       font-size: 12px;
       text-align: center;
     }
 
+    .pallet-row input[type="number"], .cylinder-row input[type="number"] { appearance:textfield; -moz-appearance:textfield; }
+    .pallet-row input[type="number"]::-webkit-inner-spin-button, .pallet-row input[type="number"]::-webkit-outer-spin-button,
+    .cylinder-row input[type="number"]::-webkit-inner-spin-button, .cylinder-row input[type="number"]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+    textarea::placeholder { color:#7d89a7; opacity:.8; }
+
     .cylinder-row-header,
     .cylinder-row {
       display: grid;
-      grid-template-columns: 42px minmax(58px, 1fr) minmax(58px, 1fr) 62px 32px;
+      grid-template-columns:var(--cylinder-columns,62px minmax(46px,1fr) minmax(46px,1fr) 62px 32px);
       gap: 6px;
       align-items: center;
     }
 
     .cylinder-row-header {
       margin-bottom: 5px;
-      padding: 0 1px;
+      padding: 0;
       color: var(--sub);
       font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.35px;
     }
+
+
+    .cylinder-dimension-label { display:inline-flex; align-items:center; gap:3px; white-space:nowrap; }
+    .cylinder-dimension-info {
+      display:inline-flex; align-items:center; justify-content:center; flex:0 0 14px;
+      width:14px; height:16px; margin:0; padding:0; border:0; border-radius:3px;
+      background:transparent; color:var(--sub); cursor:help;
+    }
+    .cylinder-dimension-info:hover, .cylinder-dimension-info:focus-visible { color:var(--accent); }
+    .cylinder-dimension-info:focus-visible { outline:1px solid var(--accent); outline-offset:2px; }
+    .cylinder-measure-tooltip {
+      position:fixed; z-index:190; width:min(220px,calc(100vw - 16px));
+      padding:8px 8px 12px; border:1px solid #344267; border-radius:8px;
+      background:#10172a; color:var(--text); box-shadow:0 8px 25px #0006;
+      --cylinder-accent:#86b6ff; --cylinder-outline:#61728e;
+    }
+    .cylinder-measure-tooltip svg { display:block; width:100%; height:auto; }
+    .cylinder-measure-caption { font-size:12px; line-height:1.4; text-align:center; }
 
     .cylinder-rows {
       display: grid;
@@ -765,6 +823,12 @@
     }
 
     .settings-close-icon {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
+      padding:0;
+      line-height:1;
       width: 34px;
       height: 34px;
       border-radius: 7px;
@@ -926,7 +990,7 @@
     <div class="app-heading">
       <div class="app-heading-copy">
         <h1>Eriks Packningskalkylator</h1>
-        <div class="app-version">Extreme Point Heuristic // Version 8.3.1</div>
+        <div class="app-version"><a class="algorithm-reference" href="https://www.cirrelt.ca/documentstravail/cirrelt-2007-41.pdf" target="_blank" rel="noopener noreferrer">Extreme Point Heuristics</a> // Version 8.4.4</div>
       </div>
       <button id="settingsBtn" class="settings-button" type="button" aria-haspopup="dialog" aria-controls="settingsModal">⚙ Inställningar</button>
     </div>
@@ -947,32 +1011,13 @@
       <div id="calculationState" class="note calculation-pending">Ej beräknad.</div>
     </div>
 
-    <section id="advancedOptions" class="advanced-options" hidden>
-      <h3>Orders &amp; godsklass</h3>
-      <label class="check-line"><input id="requireSeparateOrders" type="checkbox"><span>Kr&auml;v egna containers per order</span></label>
-      <label class="check-line"><input id="preferHazardous" type="checkbox" checked><span>Samla hazardous i s&aring; f&aring; containers som m&ouml;jligt</span></label>
-      <div class="note">Utan orderkrav f&aring;r orders blandas. Antal och containertyper prioriteras f&ouml;rst, d&auml;refter f&auml;rre hazardous-containers och mindre ordersplit.</div>
-      <div><label for="groupSeparator">Blockavskiljare i textimport</label>
-        <select id="groupSeparator"><option value="---">---</option><option value="===">===</option><option value="|||">|||</option><option value="custom">Egen avskiljare</option></select>
-        <input id="customSeparator" type="text" placeholder="Exempel: ###" maxlength="16" aria-label="Egen blockavskiljare" hidden>
-      </div>
-      <details><summary class="note">Visa format och exempel</summary>
-        <div class="note">Ny rad: avskiljare + orderref | general eller hazardous. Samma orderref kan &aring;terkomma med annan godsklass. Utan rubrik anv&auml;nds Order-001 / general. M&aring;tt i cm, eventuell vikt i kg.</div>
-        <pre>--- ORDER-A | general
-(120,80,100) (120,80,100,450)
---- ORDER-B | hazardous
-(100,100,120,300)
---- ORDER-B | general
-(80,60,100)</pre>
-        <div class="note">Pallar: (L,B,H[,vikt]). Cylindrar: (H,diameter[,vikt]). Semikolon och decimalcomma fungerar inom parenteser. En rad med kommaseparerade m&aring;tt fungerar ocks&aring;.</div>
-      </details>
-      <div class="note warning">Hazardous/general &auml;r en planeringsindelning. Inga regler f&ouml;r farligt gods, samlastning eller IMDG-segregering kontrolleras.</div>
-    </section>
+
+
 
     <div class="input-panel">
       <div id="palletPanel" class="cargo-panel">
         <div class="field">
-          <label>Pallrader</label>
+          <div class="cargo-row-heading"><label>Pallrader</label><span id="palletUnitSwitchSlot" class="unit-switch-slot"><button id="dimensionUnit" class="unit-switch" type="button" role="switch" value="cm" aria-checked="false" aria-label="Inmatningsenhet: cm. Växla till mm"><span>cm</span><span>mm</span></button></span></div>
 
           <div class="pallet-row-header">
             <span>Antal</span>
@@ -980,7 +1025,7 @@
             <span>Bredd</span>
             <span>Höjd</span>
             <span>Vikt</span>
-            <span title="Lås rotation">Lås</span>
+            <span data-rotation-lock-header title="Lås rotation">Lås</span>
             <span></span>
           </div>
 
@@ -991,24 +1036,17 @@
           </div>
         </div>
 
-        <div class="field import-box">
-          <label>Klistra in pallar</label>
-          <textarea id="palletImport"></textarea>
 
-          <div class="action-row">
-            <button id="importPalletsBtn" class="primary-button" type="button">Importera text</button>
-          </div>
-        </div>
       </div>
 
       <div id="cylinderPanel" class="cargo-panel" hidden>
         <div class="field">
-          <label>Cylinderrader</label>
+          <div class="cargo-row-heading"><label>Cylinderrader</label><span id="cylinderUnitSwitchSlot" class="unit-switch-slot"></span></div>
 
           <div class="cylinder-row-header">
             <span>Antal</span>
-            <span>Höjd</span>
-            <span>Diameter</span>
+            <span class="cylinder-dimension-label">Diameter<button id="cylinder-diameter-info" class="cylinder-dimension-info" type="button" aria-label="Visa hur cylinderns diameter mäts" aria-describedby="cylinder-diameter-tooltip"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.2"/><path d="M10 9V14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="10" cy="6" r=".9" fill="currentColor"/></svg></button></span>
+            <span class="cylinder-dimension-label">Höjd<button id="cylinder-height-info" class="cylinder-dimension-info" type="button" aria-label="Visa hur cylinderns höjd mäts" aria-describedby="cylinder-height-tooltip"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.2"/><path d="M10 9V14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="10" cy="6" r=".9" fill="currentColor"/></svg></button></span>
             <span>Vikt</span>
             <span></span>
           </div>
@@ -1020,24 +1058,11 @@
           </div>
         </div>
 
-        <div class="field import-box">
-          <label>Klistra in cylindrar</label>
-          <textarea id="cylinderImport"></textarea>
 
-          <div class="action-row">
-            <button id="importCylindersBtn" class="primary-button" type="button">Importera text</button>
-          </div>
-        </div>
       </div>
 
-      <div class="action-row">
-        <button id="exportCsvBtn" class="secondary-button" type="button">Exportera CSV</button>
-        <button id="importCsvBtn" class="secondary-button" type="button">Importera CSV</button>
-        <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
-      </div>
 
       <div class="note csv-format-note" hidden></div>
-      <div id="importMsg" class="note"></div>
     </div>
 
     <div class="row">
@@ -1054,10 +1079,54 @@
       </div>
     </div>
 
-    <div class="field">
+    <div id="maxWeightField" class="field">
       <label for="maxContainerWeight">Maxvikt/container (kg)</label>
-      <input id="maxContainerWeight" type="number" value="25000" min="1" step="100">
+      <input id="maxContainerWeight" type="number" value="26000" min="1" step="100">
     </div>
+
+    <section id="advancedOptions" class="advanced-options" hidden>
+      <h3>Orders &amp; godsklass</h3>
+      <label class="check-line"><input id="requireSeparateOrders" type="checkbox"><span>Kr&auml;v egna containers per order</span></label>
+      <label class="check-line"><input id="preferHazardous" type="checkbox" checked><span>Samla hazardous i s&aring; f&aring; containers som m&ouml;jligt</span></label>
+      <div class="note">Utan orderkrav f&aring;r orders blandas. Antal och containertyper prioriteras f&ouml;rst, d&auml;refter f&auml;rre hazardous-containers och mindre ordersplit.</div>
+      <div><label for="groupSeparator">Blockavskiljare i textimport</label>
+        <select id="groupSeparator"><option value="---">---</option><option value="===">===</option><option value="|||">|||</option><option value="custom">Egen avskiljare</option></select>
+        <input id="customSeparator" type="text" placeholder="Exempel: ###" maxlength="16" aria-label="Egen blockavskiljare" hidden>
+      </div>
+      <details><summary class="note">Visa format och exempel</summary>
+        <div class="note">Ny rad: avskiljare + orderref | general eller hazardous. Samma orderref kan &aring;terkomma med annan godsklass. Utan rubrik anv&auml;nds Order-001 / general. M&aring;tt i <span data-cargo-input-unit>cm</span>, eventuell vikt i kg.</div>
+        <pre>--- ORDER-A | general
+(120,80,100) (120,80,100,450)
+--- ORDER-B | hazardous
+(100,100,120,300)
+--- ORDER-B | general
+(80,60,100)</pre>
+        <div class="note">Pallar: (L,B,H[,vikt]). Cylindrar: (H,diameter[,vikt]). Semikolon och decimalcomma fungerar inom parenteser. En rad med kommaseparerade m&aring;tt fungerar ocks&aring;.</div>
+      </details>
+      <div class="note warning">Hazardous/general &auml;r en planeringsindelning. Inga regler f&ouml;r farligt gods, samlastning eller IMDG-segregering kontrolleras.</div>
+    </section>
+
+        <details id="palletImportBox" class="import-dropdown">
+          <summary>Klistra in pallar</summary>
+          <div class="field import-box">
+            <label for="palletImport">Mått i <span data-cargo-input-unit>cm</span>, vikt i kg</label>
+            <textarea id="palletImport" rows="8" placeholder="(l, b, h)&#10;(l, b, h)&#10;&#10;//&#10;&#10;(l, b, h, v)&#10;(l, b, h, v)"></textarea>
+            <div class="action-row">
+              <button id="importPalletsBtn" class="primary-button" type="button">Importera text</button>
+            </div>
+          </div>
+        </details>
+        <details id="cylinderImportBox" class="import-dropdown" hidden>
+          <summary>Klistra in cylindrar</summary>
+          <div class="field import-box">
+            <label for="cylinderImport">Mått i <span data-cargo-input-unit>cm</span>, vikt i kg</label>
+            <textarea id="cylinderImport" rows="8" placeholder="(h, d)&#10;(h, d)&#10;&#10;//&#10;&#10;(h, d, v)&#10;(h, d, v)"></textarea>
+            <div class="action-row">
+              <button id="importCylindersBtn" class="primary-button" type="button">Importera text</button>
+            </div>
+          </div>
+        </details>
+    <div id="importMsg" class="note"></div>
 
     <div class="stats">
       <div class="stat-row main">
@@ -1106,6 +1175,11 @@
       <button id="showManifestBtn" class="secondary-button" type="button" disabled>Lastlista</button>
       <button id="exportExcelBtn" class="secondary-button" type="button" disabled>Exportera Excel</button>
     </div>
+    <div class="action-row csv-actions">
+        <button id="exportCsvBtn" class="secondary-button" type="button">Exportera CSV</button>
+        <button id="importCsvBtn" class="secondary-button" type="button">Importera CSV</button>
+        <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
+    </div>
     <div id="groupingSummary" class="note" aria-live="polite"></div>
     <div id="msgBox" class="note"></div>
 
@@ -1127,14 +1201,19 @@
     <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
       <div class="settings-header">
         <h2 id="settingsTitle">Inställningar</h2>
-        <button id="settingsCloseIcon" class="settings-close-icon" type="button" aria-label="Stäng inställningar">×</button>
+        <button id="settingsCloseIcon" class="settings-close-icon" type="button" aria-label="Stäng inställningar"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5 5L15 15M15 5L5 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       </div>
       <div class="settings-content">
         <section class="calculation-settings">
-          <h3>Ber&auml;kning</h3>
-          <label for="advancedTimeLimit">Tidsgr&auml;ns f&ouml;r avancerad s&ouml;kning (sekunder)</label>
-          <input id="advancedTimeLimit" type="number" value="60" min="1" max="300" step="1">
-          <div class="note">1&ndash;300 sekunder. B&auml;sta hittade l&ouml;sning beh&aring;lls n&auml;r tiden tar slut. Rendering och export ing&aring;r inte i s&ouml;ktiden.</div>
+          <h3>Optimerad/snabb beräkning</h3>
+          <div class="field">
+            <label for="advancedTimeLimit">Fråga efter (sekunder)</label>
+            <input id="advancedTimeLimit" type="number" value="60" min="1" max="300" step="1">
+          </div>
+          <div class="field">
+            <label for="defaultMaxContainerWeight">Standard maxvikt/container (kg)</label>
+            <input id="defaultMaxContainerWeight" type="number" value="26000" min="1" step="100">
+          </div>
         </section>
         <div id="containerSettingsGrid" class="container-settings-grid"></div>
       </div>
@@ -1152,11 +1231,11 @@
       <h3 id="selectedCargoLabel">V&auml;lj ett kolli</h3>
       <label for="manualTarget">M&aring;lcontainer</label><select id="manualTarget"></select>
       <div class="coordinates">
-        <div><label for="manualX">X &middot; cm</label><input id="manualX" type="number" step="0.1"></div>
-        <div><label for="manualY">Y &middot; cm</label><input id="manualY" type="number" step="0.1"></div>
-        <div><label for="manualZ">Z &middot; cm</label><input id="manualZ" type="number" min="0" step="0.1"></div>
+        <div><label for="manualX">X &middot; <span data-length-unit>cm</span></label><input id="manualX" type="number" step="0.1"></div>
+        <div><label for="manualY">Y &middot; <span data-length-unit>cm</span></label><input id="manualY" type="number" step="0.1"></div>
+        <div><label for="manualZ">Z &middot; <span data-length-unit>cm</span></label><input id="manualZ" type="number" min="0" step="0.1"></div>
       </div>
-      <label class="check-line"><input id="manualSnap" type="checkbox" checked><span>Sn&auml;pp till 1 cm vid dragning</span></label>
+      <label class="check-line"><input id="manualSnap" type="checkbox" checked><span>Snäpp till <span id="manualSnapLength">1 cm</span> vid dragning</span></label>
       <div class="action-row">
         <button id="manualApplyBtn" class="primary-button" type="button">Flytta</button>
         <button id="manualRotateBtn" class="secondary-button" type="button">Rotera 90&deg;</button>
@@ -1186,12 +1265,18 @@
         <div class="loading-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div id="loadingBarFill" class="loading-bar-fill"></div>
         </div>
+        <div id="calculationChoice" class="loading-choice" role="dialog" aria-modal="false" aria-labelledby="calculationChoiceText" hidden>
+          <p id="calculationChoiceText">Beräkningen pågår fortfarande. Hur vill du fortsätta?</p>
+          <div class="action-row">
+            <button id="continueCalculationBtn" class="primary-button" type="button">Fortsätt vänta på optimerad beräkning</button>
+            <button id="quickCalculationBtn" class="secondary-button" type="button">Kör snabb beräkning</button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="overlay-info">
-      <div id="palletLegendA"><span class="color-dot" style="background:#4a9eff"></span><span>Längd (A)</span></div>
-      <div id="palletLegendB" style="margin-top:4px"><span class="color-dot" style="background:#7bd89c"></span><span>Bredd (B)</span></div>
-      <div id="cylinderLegend" hidden><span class="color-dot" style="background:#6aa6ff"></span><span>Cylinder</span></div>
+      <div id="palletLegendA" title="Det inmatade längdmåttet ligger längs containern"><span class="color-dot" style="background:#4a9eff"></span><span>Längsgående</span></div>
+      <div id="palletLegendB" style="margin-top:4px" title="Det inmatade längdmåttet ligger tvärs containern"><span class="color-dot" style="background:#7bd89c"></span><span>Tvärställd</span></div>
       <div style="margin-top:4px"><span class="color-dot" style="background:#c28a55"></span><span id="dimensionLegendLabel">Dörrmått</span></div>
     </div>
   </div>
@@ -1201,9 +1286,45 @@
     <section class="settings-dialog manifest-dialog" role="dialog" aria-modal="true" aria-labelledby="manifestTitle">
       <div class="settings-header"><h2 id="manifestTitle">Lastlista &middot; ett kolli per rad</h2><button id="manifestCloseBtn" class="settings-close-icon" aria-label="St&auml;ng lastlista" type="button">&times;</button></div>
       <div class="manifest-toolbar"><label for="manifestFilter">Visa</label><select id="manifestFilter"><option value="all">Alla containers</option></select><button id="manifestExportBtn" class="primary-button" type="button">Exportera Excel</button></div>
-      <div class="manifest-table-wrap"><table class="manifest-table"><thead><tr><th>Kolli</th><th>Container</th><th>Equipment</th><th>Orderref</th><th>Godsklass</th><th>L &times; B &times; H (cm)</th><th>Vikt (kg)</th><th>X / Y / Z (cm)</th><th></th></tr></thead><tbody id="manifestBody"></tbody></table></div>
+      <div class="manifest-table-wrap"><table class="manifest-table"><thead><tr><th>Kolli</th><th>Container</th><th>Equipment</th><th id="manifestOrderHeader">Orderref</th><th>Godsklass</th><th>L &times; B &times; H (<span data-length-unit>cm</span>)</th><th>Vikt (kg)</th><th>X / Y / Z (<span data-length-unit>cm</span>)</th><th></th></tr></thead><tbody id="manifestBody"></tbody></table></div>
       <p class="note manifest-footnote">Tom vikt betyder ok&auml;nd vikt. Ej placerade kollin redovisas separat. Godsklass &auml;r inte en kontroll av samlastningsregler.</p>
     </section>
+  </div>
+
+  <div id="cylinder-diameter-tooltip" class="cylinder-measure-tooltip" role="tooltip" hidden>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 212" role="img" aria-labelledby="cylinder-diameter-title cylinder-diameter-description">
+  <title id="cylinder-diameter-title">Diameter</title>
+  <desc id="cylinder-diameter-description">Diametern mäts rakt över den runda ändytan, genom dess mitt. Exemplet har diameter 120 och höjd 90 i samma enhet.</desc>
+  <g fill="none" stroke="var(--cylinder-outline, #61728e)" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M66 62V152M186 62V152"/>
+    <path d="M66 152A60 18 0 0 1 186 152" stroke-dasharray="3 5" opacity=".42"/>
+    <path d="M66 152A60 18 0 0 0 186 152"/>
+    <ellipse cx="126" cy="62" rx="60" ry="18"/>
+  </g>
+  <g fill="none" stroke="var(--cylinder-accent, #86b6ff)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M67 62H185M73 58.5L66 62L73 65.5M179 58.5L186 62L179 65.5"/>
+  </g>
+  <text x="126" y="29" text-anchor="middle" fill="var(--cylinder-accent, #86b6ff)" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14">Ø120</text>
+</svg>
+    <div class="cylinder-measure-caption">Diameter</div>
+  </div>
+  <div id="cylinder-height-tooltip" class="cylinder-measure-tooltip" role="tooltip" hidden>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 212" role="img" aria-labelledby="cylinder-height-title cylinder-height-description">
+  <title id="cylinder-height-title">Höjd</title>
+  <desc id="cylinder-height-description">Höjden mäts lodrätt mellan cylinderns två plana ändytor. Exemplet har diameter 120 och höjd 90 i samma enhet.</desc>
+  <g fill="none" stroke="var(--cylinder-outline, #61728e)" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M66 62V152M186 62V152"/>
+    <path d="M66 152A60 18 0 0 1 186 152" stroke-dasharray="3 5" opacity=".42"/>
+    <path d="M66 152A60 18 0 0 0 186 152"/>
+    <ellipse cx="126" cy="62" rx="60" ry="18"/>
+  </g>
+  <g fill="none" stroke="var(--cylinder-accent, #86b6ff)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M191 62H227M191 152H227" stroke-width="1" opacity=".5"/>
+    <path d="M218 63V151M214.5 69L218 62L221.5 69M214.5 145L218 152L221.5 145" stroke-width="1.5"/>
+  </g>
+  <text x="232" y="108" dominant-baseline="middle" fill="var(--cylinder-accent, #86b6ff)" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14">90</text>
+</svg>
+    <div class="cylinder-measure-caption">Höjd</div>
   </div>
 
   <script type="module">
@@ -1493,6 +1614,12 @@
     }
 
     const els = {
+      dimensionUnit: document.getElementById('dimensionUnit'),
+      defaultMaxContainerWeight: document.getElementById('defaultMaxContainerWeight'),
+      calculationChoice: document.getElementById('calculationChoice'),
+      calculationChoiceText: document.getElementById('calculationChoiceText'),
+      continueCalculationBtn: document.getElementById('continueCalculationBtn'),
+      quickCalculationBtn: document.getElementById('quickCalculationBtn'),
       advancedMode: document.getElementById('advancedMode'),
       advancedOptions: document.getElementById('advancedOptions'),
       groupSeparator: document.getElementById('groupSeparator'),
@@ -1583,7 +1710,6 @@
       loadingBarFill: document.getElementById('loadingBarFill'),
       palletLegendA: document.getElementById('palletLegendA'),
       palletLegendB: document.getElementById('palletLegendB'),
-      cylinderLegend: document.getElementById('cylinderLegend'),
       dimensionLegendLabel: document.getElementById('dimensionLegendLabel'),
       container: document.getElementById('canvas-container')
     };
@@ -1623,7 +1749,11 @@
     scene.add(dirLight);
 
     let advancedMode = false;
-    let advancedTimeLimitSeconds = 12;
+    let advancedTimeLimitSeconds = 60;
+    // Only cargo entry uses this unit. Geometry, settings and all output use cm.
+    let cargoInputUnit = 'cm';
+    let defaultMaxContainerWeight = 26000;
+    let pendingCalculationChoice = null;
     let groupingPreferenceSearch = false;
     let selectedCargoId = null;
     let exportInProgress = false;
@@ -1638,7 +1768,11 @@
     let activeManualCargoType = 'pallet';
     let updateDelayTimer = null;
     let updateJobId = 0;
-    const DEFAULT_MAX_CONTAINER_WEIGHT = 25000;
+    const DEFAULT_MAX_CONTAINER_WEIGHT = 26000;
+    const WEIGHT_SETTINGS_KEY = 'packing-calculator-default-weight-v8.4';
+    const CAMERA_SETTINGS_KEY = 'packing-calculator-camera-unlocked-v8.4';
+    let cargoColumnFrame = null;
+    const CONTAINER_FLOOR_THICKNESS = 2; // cm, exclusively downward from the unchanged loading floor.
     const LONG_CALC_THRESHOLD = 20;
     const LONG_CALC_DELAY_MS = 30;
     const MIN_LOADING_MS = 250;
@@ -1866,9 +2000,9 @@
           const input = document.createElement('input');
           input.id = label.htmlFor;
           input.type = 'number';
-          input.min = '1';
+          input.min = '0.1';
           input.step = '0.1';
-          input.value = formatNumberForRowInput(CONTAINERS[type][field]);
+          input.value = formatLengthForInput(CONTAINERS[type][field]);
           input.dataset.containerType = type;
           input.dataset.containerField = field;
 
@@ -1950,7 +2084,7 @@
       const value = parseFlexibleNumber(input.value);
 
       if (!Number.isFinite(value) || value <= 0) {
-        input.value = formatNumberForRowInput(CONTAINERS[type][field]);
+        input.value = formatLengthForInput(CONTAINERS[type][field]);
         input.classList.remove('is-invalid');
       }
     }
@@ -1981,10 +2115,13 @@
       els.cargoTabCylinder.classList.toggle('is-active', cylinderMode);
       els.cargoTabPallet.setAttribute('aria-selected', cylinderMode ? 'false' : 'true');
       els.cargoTabCylinder.setAttribute('aria-selected', cylinderMode ? 'true' : 'false');
+      document.getElementById('palletImportBox').hidden = cylinderMode;
+      document.getElementById('cylinderImportBox').hidden = !cylinderMode;
+      document.getElementById(cylinderMode ? 'cylinderUnitSwitchSlot' : 'palletUnitSwitchSlot').appendChild(els.dimensionUnit);
       els.palletLegendA.hidden = cylinderMode;
       els.palletLegendB.hidden = cylinderMode;
-      els.cylinderLegend.hidden = !cylinderMode;
       if (cylinderMode) hideRotatePalletButton();
+      queueCargoColumnLayout();
     }
 
     function setCargoType(type, options = {}) {
@@ -2093,10 +2230,17 @@
 
     els.maxContainerWeight.addEventListener('blur', () => {
       if (!Number.isFinite(parseFloat(els.maxContainerWeight.value)) || parseFloat(els.maxContainerWeight.value) <= 0) {
-        els.maxContainerWeight.value = DEFAULT_MAX_CONTAINER_WEIGHT;
+        els.maxContainerWeight.value = defaultMaxContainerWeight;
         handlePackingInputsChanged();
       }
     });
+
+    for (const rows of [els.palletRows,els.cylinderRows]) {
+      for (const eventName of ['input','change','focusin','focusout']) rows.addEventListener(eventName,queueCargoColumnLayout);
+    }
+    const cargoColumnObserver = new ResizeObserver(queueCargoColumnLayout);
+    cargoColumnObserver.observe(els.palletRows);
+    cargoColumnObserver.observe(els.cylinderRows);
 
     els.addPalletRow.addEventListener('click', () => addPalletRow({ count: 1 }, true));
     els.addCylinderRow.addEventListener('click', () => addCylinderRow({ count: 1 }, true));
@@ -2205,6 +2349,50 @@
       for (const texture of textures) texture.dispose();
     }
 
+    function queueCargoColumnLayout() {
+      if (cargoColumnFrame !== null) return;
+      cargoColumnFrame = requestAnimationFrame(() => {
+        cargoColumnFrame = null;
+        fitCargoColumns(els.palletPanel, els.palletRows, ['count','L','W','H','weight'], [62,50,50,50,54]);
+        fitCargoColumns(els.cylinderPanel, els.cylinderRows, ['count','D','H','weight'], [62,66,66,62]);
+      });
+    }
+
+    function fitCargoColumns(panel, rows, fields, baseline) {
+      if (panel.hidden || !rows.clientWidth) return;
+      const pallet = panel === els.palletPanel;
+      const lockWidth = pallet && advancedMode ? 36 : 0;
+      const controls = lockWidth ? [lockWidth,32] : [32];
+      const gap = 6;
+      const available = rows.clientWidth - controls.reduce((sum,n) => sum+n,0) - gap*(fields.length+controls.length-1);
+      const minimum = Math.min(46,available/fields.length);
+      const sample = rows.querySelector('input[type="number"]');
+      const fontSize = sample ? parseFloat(getComputedStyle(sample).fontSize) : 12;
+      const extra = fields.map(field => Math.max(0,...[...rows.querySelectorAll(`input[data-field="${field}"]`)].map(input => input.value.length-4)));
+      const widths = baseline.map((width,i) => width+extra[i]*fontSize*.65);
+      const focused = fields.indexOf(rows.contains(document.activeElement) ? document.activeElement.dataset.field : '');
+      let remaining = available-widths.reduce((sum,n) => sum+n,0);
+      if (remaining >= 0) {
+        const weights = fields.map(field => field === 'count' ? 1.4 : field === 'weight' ? 1.2 : 1);
+        const total = weights.reduce((sum,n) => sum+n,0);
+        for (let i=0;i<widths.length;i++) widths[i] += remaining*weights[i]/total;
+      } else {
+        let deficit = -remaining;
+        const reclaim = indices => {
+          const spare = indices.reduce((sum,i) => sum+Math.max(0,widths[i]-minimum),0);
+          const amount = Math.min(deficit,spare);
+          if (!amount || !spare) return;
+          for (const i of indices) widths[i] -= amount*Math.max(0,widths[i]-minimum)/spare;
+          deficit -= amount;
+        };
+        reclaim(fields.map((_,i) => i).filter(i => i!==focused && extra[i]===0));
+        reclaim(fields.map((_,i) => i).filter(i => i!==focused && extra[i]>0));
+        if (focused>=0) reclaim([focused]);
+      }
+      const tracks = [...widths,...controls].map(width => `${width.toFixed(3)}px`).join(' ');
+      panel.style.setProperty(pallet ? (advancedMode ? '--pallet-columns-advanced' : '--pallet-columns') : '--cylinder-columns',tracks);
+    }
+
     function createRowInput(field, value, placeholder, min = null, changeHandler = handlePalletRowsChanged) {
       const input = document.createElement('input');
       input.type = 'number';
@@ -2252,6 +2440,103 @@
       return parseFloat(text.replace(/\s/g, '').replace(',', '.'));
     }
 
+    function fromCargoInputLength(value) {
+      return cargoInputUnit === 'mm' ? value / 10 : value;
+    }
+
+    // These formatters keep every non-cargo input and output in centimetres.
+    function formatLengthForInput(value) {
+      if (value === '' || value === null || value === undefined) return '';
+      const number = Number(value);
+      return Number.isFinite(number) ? String(Number(number.toFixed(9))) : '';
+    }
+
+    function formatCargoLengthForInput(value) {
+      if (value === '' || value === null || value === undefined) return '';
+      return formatLengthForInput(Number(value) * (cargoInputUnit === 'mm' ? 10 : 1));
+    }
+
+    function lengthText(value) { return formatLengthForInput(value); }
+    function dimensionsText(values) { return values.map(lengthText).join(' x '); }
+
+    function setDimensionUnit(unit) {
+      const next = unit === 'mm' ? 'mm' : 'cm';
+      if (next === cargoInputUnit) return;
+      cancelSafeDrag();
+      cargoInputUnit = next;
+      updateDimensionLabels();
+      // Keep typed numbers and pasted text intact; their meaning has changed.
+      handlePackingInputsChanged();
+    }
+
+    function updateDimensionLabels() {
+      queueCargoColumnLayout();
+      els.dimensionUnit.value = cargoInputUnit;
+      els.dimensionUnit.setAttribute('aria-checked', String(cargoInputUnit === 'mm'));
+      els.dimensionUnit.setAttribute('aria-label', `Inmatningsenhet: ${cargoInputUnit}. Växla till ${cargoInputUnit === 'cm' ? 'mm' : 'cm'}`);
+      for (const el of document.querySelectorAll('[data-cargo-input-unit]')) el.textContent = cargoInputUnit;
+      for (const row of document.querySelectorAll('.pallet-row, .cylinder-row')) {
+        for (const input of row.querySelectorAll('[data-field]')) {
+          if (!['L','W','H','D'].includes(input.dataset.field)) continue;
+          const example = { L:120, W:80, H:row.classList.contains('cylinder-row') ? 130 : 100, D:135 }[input.dataset.field];
+          input.placeholder = formatCargoLengthForInput(example);
+        }
+      }
+    }
+
+    function initializeCylinderDimensionHelp() {
+      const buttons = [...document.querySelectorAll('.cylinder-dimension-info')];
+      let showTimer = null, hideTimer = null, activeButton = null;
+      const tooltipFor = button => document.getElementById(button.getAttribute('aria-describedby'));
+      const hide = () => {
+        clearTimeout(showTimer); clearTimeout(hideTimer);
+        for (const button of buttons) tooltipFor(button).hidden = true;
+        activeButton = null;
+      };
+      const show = button => {
+        hide();
+        if (button.disabled || els.cylinderPanel.hidden) return;
+        const tooltip = tooltipFor(button);
+        tooltip.hidden = false;
+        activeButton = button;
+        const anchor = button.getBoundingClientRect();
+        const bounds = tooltip.getBoundingClientRect();
+        const left = Math.max(8, Math.min(innerWidth - bounds.width - 8, anchor.left + anchor.width / 2 - bounds.width / 2));
+        const below = anchor.bottom + 9;
+        const top = below + bounds.height <= innerHeight - 8 ? below : anchor.top - bounds.height - 9;
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${Math.max(8, top)}px`;
+      };
+      const deferHide = () => {
+        clearTimeout(showTimer);
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(hide, 120);
+      };
+      for (const button of buttons) {
+        const tooltip = tooltipFor(button);
+        button.addEventListener('pointerenter', event => {
+          if (event.pointerType === 'touch') return;
+          clearTimeout(showTimer); clearTimeout(hideTimer);
+          showTimer = setTimeout(() => show(button), 500);
+        });
+        button.addEventListener('pointerleave', deferHide);
+        button.addEventListener('focus', () => { if (button.matches(':focus-visible')) show(button); });
+        button.addEventListener('blur', deferHide);
+        button.addEventListener('click', event => {
+          if (event.detail && activeButton === button) hide();
+          else show(button);
+        });
+        tooltip.addEventListener('pointerenter', () => clearTimeout(hideTimer));
+        tooltip.addEventListener('pointerleave', deferHide);
+      }
+      document.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
+      document.addEventListener('click', event => {
+        if (!event.target.closest('.cylinder-dimension-info, .cylinder-measure-tooltip')) hide();
+      });
+      document.addEventListener('scroll', hide, true);
+      window.addEventListener('resize', hide);
+    }
+
     function readPalletRowElement(rowEl) {
       const countVal = rowEl.querySelector('[data-field="count"]')?.value;
       const lVal = rowEl.querySelector('[data-field="L"]')?.value;
@@ -2261,9 +2546,9 @@
       const lockRotation = Boolean(rowEl.querySelector('[data-field="lockRotation"]')?.checked);
 
       const count = parseRowCount(countVal);
-      const L = parseFlexibleNumber(lVal);
-      const W = parseFlexibleNumber(wVal);
-      const H = parseFlexibleNumber(hVal);
+      const L = fromCargoInputLength(parseFlexibleNumber(lVal));
+      const W = fromCargoInputLength(parseFlexibleNumber(wVal));
+      const H = fromCargoInputLength(parseFlexibleNumber(hVal));
       const weight = weightVal === '' ? '' : parseFlexibleNumber(weightVal);
 
       return {
@@ -2289,8 +2574,8 @@
       const weightVal = rowEl.querySelector('[data-field="weight"]')?.value;
 
       const count = parseRowCount(countVal);
-      const H = parseFlexibleNumber(heightVal);
-      const D = parseFlexibleNumber(diameterVal);
+      const H = fromCargoInputLength(parseFlexibleNumber(heightVal));
+      const D = fromCargoInputLength(parseFlexibleNumber(diameterVal));
       const weight = weightVal === '' ? '' : parseFlexibleNumber(weightVal);
 
       return {
@@ -2313,7 +2598,8 @@
     function setPalletRowFieldValue(rowEl, field, value) {
       const input = rowEl.querySelector(`[data-field="${field}"]`);
       if (!input) return;
-      input.value = value ?? '';
+      input.value = ['L','W','H','D'].includes(field) ? formatCargoLengthForInput(value) : (value ?? '');
+      queueCargoColumnLayout();
     }
 
     function setPalletRowRotationLock(rowEl, checked) {
@@ -2336,9 +2622,9 @@
       row.dataset.rowId = String(nextPalletRowId++);
 
       const countInput = createRowInput('count', data.count ?? 1, '1', 1, handlePalletRowsChanged);
-      const lengthInput = createRowInput('L', data.L ?? '', '120', 1, handlePalletRowsChanged);
-      const widthInput = createRowInput('W', data.W ?? '', '80', 1, handlePalletRowsChanged);
-      const heightInput = createRowInput('H', data.H ?? '', '100', 1, handlePalletRowsChanged);
+      const lengthInput = createRowInput('L', formatCargoLengthForInput(data.L), formatCargoLengthForInput(120), 0.1, handlePalletRowsChanged);
+      const widthInput = createRowInput('W', formatCargoLengthForInput(data.W), formatCargoLengthForInput(80), 0.1, handlePalletRowsChanged);
+      const heightInput = createRowInput('H', formatCargoLengthForInput(data.H), formatCargoLengthForInput(100), 0.1, handlePalletRowsChanged);
       const weightInput = createRowInput('weight', data.weight ?? '', '-', 0, handlePalletRowsChanged);
       const lockRotationInput = createRotationLockInput(data.lockRotation ?? false);
 
@@ -2373,6 +2659,7 @@
         els.palletRows.appendChild(row);
       }
 
+      queueCargoColumnLayout();
       if (shouldUpdate) handlePalletRowsChanged();
       return row;
     }
@@ -2384,8 +2671,8 @@
       row.dataset.rowId = String(nextCylinderRowId++);
 
       const countInput = createRowInput('count', data.count ?? 1, '1', 1, handleCylinderRowsChanged);
-      const heightInput = createRowInput('H', data.H ?? '', '130', 1, handleCylinderRowsChanged);
-      const diameterInput = createRowInput('D', data.D ?? data.L ?? '', '135', 1, handleCylinderRowsChanged);
+      const heightInput = createRowInput('H', formatCargoLengthForInput(data.H), formatCargoLengthForInput(130), 0.1, handleCylinderRowsChanged);
+      const diameterInput = createRowInput('D', formatCargoLengthForInput(data.D ?? data.L), formatCargoLengthForInput(135), 0.1, handleCylinderRowsChanged);
       const weightInput = createRowInput('weight', data.weight ?? '', '-', 0, handleCylinderRowsChanged);
 
       const removeButton = document.createElement('button');
@@ -2400,13 +2687,14 @@
       });
 
       row.appendChild(countInput);
-      row.appendChild(heightInput);
       row.appendChild(diameterInput);
+      row.appendChild(heightInput);
       row.appendChild(weightInput);
       row.appendChild(removeButton);
       addRowMetadataInputs(row, data, handleCylinderRowsChanged);
       els.cylinderRows.appendChild(row);
 
+      queueCargoColumnLayout();
       if (shouldUpdate) handleCylinderRowsChanged();
       return row;
     }
@@ -2429,6 +2717,7 @@
         rows.push({
           rowId: rowData.rowId,
           orderRef: rowData.orderRef,
+          orderRefExplicit: rowData.orderRefExplicit,
           cargoClass: rowData.cargoClass,
           rowIndex,
           count: rowData.count,
@@ -2455,6 +2744,7 @@
         rows.push({
           rowId: rowData.rowId,
           orderRef: rowData.orderRef,
+          orderRefExplicit: rowData.orderRefExplicit,
           cargoClass: rowData.cargoClass,
           rowIndex,
           count: rowData.count,
@@ -2486,6 +2776,7 @@
           pallets.push({
             id: nextId++,
             orderRef: normalizeOrderRef(row.orderRef),
+            orderRefExplicit: Boolean(row.orderRefExplicit),
             cargoClass: normalizeCargoClass(row.cargoClass),
             L: row.L,
             W: row.W,
@@ -2514,6 +2805,7 @@
           cylinders.push({
             id: nextId++,
             orderRef: normalizeOrderRef(row.orderRef),
+            orderRefExplicit: Boolean(row.orderRefExplicit),
             cargoClass: normalizeCargoClass(row.cargoClass),
             D: row.D,
             L: row.D,
@@ -2559,7 +2851,8 @@
         const parts = rawParts.map(parseFlexibleNumber);
         if (!parts.every(Number.isFinite)) continue;
 
-        const [L, W, H, parsedWeight] = parts;
+        const [L, W, H] = parts.slice(0, 3).map(v => fromCargoInputLength(v));
+        const parsedWeight = parts[3];
         const weight = rawParts.length === 4 ? parsedWeight : '';
 
         if (L > 0 && W > 0 && H > 0) {
@@ -2593,7 +2886,8 @@
         const parts = rawParts.map(parseFlexibleNumber);
         if (!parts.every(Number.isFinite)) continue;
 
-        const [H, D, parsedWeight] = parts;
+        const [H, D] = parts.slice(0, 2).map(v => fromCargoInputLength(v));
+        const parsedWeight = parts[2];
         const weight = rawParts.length === 3 ? parsedWeight : '';
         if (H <= 0 || D <= 0) continue;
 
@@ -2619,12 +2913,13 @@
       for (const row of rows) {
         const weightKey = row.weight === '' ? '' : String(row.weight);
         const lockKey = row.lockRotation ? '1' : '0';
-        const key = JSON.stringify([row.L, row.W, row.H, weightKey, lockKey, normalizeOrderRef(row.orderRef), normalizeCargoClass(row.cargoClass)]);
+        const key = JSON.stringify([row.L, row.W, row.H, weightKey, lockKey, normalizeOrderRef(row.orderRef), Boolean(row.orderRefExplicit), normalizeCargoClass(row.cargoClass)]);
 
         if (!map.has(key)) {
           map.set(key, {
             count: 0,
             orderRef: normalizeOrderRef(row.orderRef),
+            orderRefExplicit: Boolean(row.orderRefExplicit),
             cargoClass: normalizeCargoClass(row.cargoClass),
             L: row.L,
             W: row.W,
@@ -2649,12 +2944,13 @@
 
       for (const row of rows) {
         const weightKey = row.weight === '' ? '' : String(row.weight);
-        const key = JSON.stringify([row.H, row.D, weightKey, normalizeOrderRef(row.orderRef), normalizeCargoClass(row.cargoClass)]);
+        const key = JSON.stringify([row.H, row.D, weightKey, normalizeOrderRef(row.orderRef), Boolean(row.orderRefExplicit), normalizeCargoClass(row.cargoClass)]);
 
         if (!map.has(key)) {
           map.set(key, {
             count: 0,
             orderRef: normalizeOrderRef(row.orderRef),
+            orderRefExplicit: Boolean(row.orderRefExplicit),
             cargoClass: normalizeCargoClass(row.cargoClass),
             H: row.H,
             D: row.D,
@@ -2696,47 +2992,37 @@
 
     function exportConfigurationCsv() {
       const rows = readActiveCargoRowDefinitions();
-      const cargoType = getCargoType();
-      const stackable = els.stack.checked ? '1' : '0';
-      const layers = parseInt(els.layers.value, 10) || 1;
-      const equipmentMode = getEquipmentMode();
-      const csvRows = [CSV_COLUMNS];
-
-      rows.forEach(row => {
-        const cylinderMode = cargoType === 'cylinder';
-        csvRows.push([
-          cargoType,
-          equipmentMode,
-          stackable,
-          layers,
-          getMaxContainerWeight(),
-          row.count,
-          cylinderMode ? row.D : row.L,
-          cylinderMode ? row.D : row.W,
-          row.H,
-          cylinderMode ? row.D : '',
-          row.weight === '' ? '' : row.weight,
-          cylinderMode ? '1' : (row.lockRotation ? '1' : '0'),
-          encodeCsvOrderRef(row.orderRef), row.cargoClass, els.requireSeparateOrders.checked ? '1' : '0',
-          els.preferHazardous.checked ? '1' : '0', advancedTimeLimitSeconds, 'apostrophe-v1'
-        ]);
-      });
-
+      const includeOrders = shouldIncludeOrderReferences(rows);
+      const columns = CSV_COLUMNS.filter(name => includeOrders || name !== 'order_ref');
+      columns.push('dimension_unit');
+      if (includeOrders) columns.push('order_ref_explicit');
+      const csvRows = [columns];
+      for (const row of rows) {
+        const cylinder = getCargoType() === 'cylinder';
+        const values = {
+          cargo_type:getCargoType(), equipment_mode:getEquipmentMode(), stackable:els.stack.checked ? '1' : '0',
+          layers:parseInt(els.layers.value, 10) || 1, max_weight_kg:getMaxContainerWeight(), count:row.count,
+          length_cm:cylinder ? row.D : row.L,
+          width_cm:cylinder ? row.D : row.W,
+          height_cm:row.H,
+          diameter_cm:cylinder ? row.D : '',
+          weight_kg:row.weight, lock_rotation:cylinder || row.lockRotation ? '1' : '0',
+          order_ref:encodeCsvOrderRef(row.orderRef), order_ref_explicit:row.orderRefExplicit ? '1' : '0',
+          cargo_class:row.cargoClass, separate_orders:els.requireSeparateOrders.checked ? '1' : '0',
+          prefer_hazardous:els.preferHazardous.checked ? '1' : '0', advanced_time_limit_s:advancedTimeLimitSeconds,
+          csv_text_encoding:'apostrophe-v1', dimension_unit:'cm'
+        };
+        csvRows.push(columns.map(name => values[name] ?? ''));
+      }
       const csv = '\ufeff' + csvRows.map(row => row.map(escapeCsvValue).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      const stamp = new Date().toISOString().slice(0, 10);
-
       link.href = url;
-      link.download = `packningskonfiguration-${stamp}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-
-      els.importMsg.innerHTML = rows.length
-        ? '<span class="success">CSV exporterad.</span>'
+      link.download = `packningskonfiguration-v8.4.4-${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(link); link.click(); link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      els.importMsg.innerHTML = rows.length ? '<span class="success">CSV exporterad.</span>'
         : `<span class="warning">Inga giltiga ${getCargoNoun(2)} att exportera.</span>`;
     }
 
@@ -2927,6 +3213,7 @@
       let importedSeparateOrders = null;
       let importedPreferHazardous = null;
       let importedTimeLimit = null;
+      let importedUnit = null;
 
       rows.slice(1).forEach(row => {
         const read = field => {
@@ -2940,7 +3227,16 @@
         if (importedPreferHazardous === null && String(preferValue).trim()) importedPreferHazardous = parseCsvBoolean(preferValue);
         const timeValue = Number(read('advanced_time_limit_s'));
         if (importedTimeLimit === null && timeValue >= 1 && timeValue <= 300) importedTimeLimit = timeValue;
-        const metadata = { orderRef: normalizeOrderRef(decodeCsvOrderRef(read('order_ref'), read('csv_text_encoding'))), cargoClass: normalizeCargoClass(read('cargo_class')) };
+        const fileUnit = read('dimension_unit');
+        if (!importedUnit && ['cm','mm'].includes(fileUnit)) importedUnit = fileUnit;
+        if (!importedUnit && headers.some(header => /_(?:mm)$/.test(header))) importedUnit = 'mm';
+        const rawOrderRef = decodeCsvOrderRef(read('order_ref'), read('csv_text_encoding'));
+        const explicit = read('order_ref_explicit');
+        const metadata = {
+          orderRef:normalizeOrderRef(rawOrderRef),
+          orderRefExplicit:String(explicit).trim() ? parseCsvBoolean(explicit) : Boolean(String(rawOrderRef).trim() && rawOrderRef !== 'Order-001'),
+          cargoClass:normalizeCargoClass(read('cargo_class'))
+        };
         const modeValue = normalizeEquipmentModeValue(read('equipment_mode'));
         if (!importedMode && modeValue) importedMode = modeValue;
 
@@ -2956,10 +3252,15 @@
         if (importedMaxWeight === null && Number.isFinite(maxWeightValue) && maxWeightValue > 0) importedMaxWeight = maxWeightValue;
 
         const count = Math.max(1, Math.floor(parseCsvNumber(read('count')) || 1));
-        const H = parseCsvNumber(read('height_cm'));
-        const diameter = parseCsvNumber(read('diameter_cm'));
-        const L = parseCsvNumber(read('length_cm'));
-        const W = parseCsvNumber(read('width_cm'));
+        const readDimension = name => {
+          if (indexOf(`${name}_cm`) !== -1) return parseCsvNumber(read(`${name}_cm`));
+          if (indexOf(`${name}_mm`) !== -1) return parseCsvNumber(read(`${name}_mm`)) / 10;
+          return NaN;
+        };
+        const H = readDimension('height');
+        const diameter = readDimension('diameter');
+        const L = readDimension('length');
+        const W = readDimension('width');
         const weight = parseCsvNumber(read('weight_kg'));
         const explicitCargo = normalizeCargoTypeValue(read('cargo_type'));
         const cargoType = explicitCargo || (Number.isFinite(diameter) && diameter > 0 ? 'cylinder' : 'pallet');
@@ -3014,6 +3315,7 @@
       }
 
       const importedCargoType = importedRows[0].cargoType || 'pallet';
+      setDimensionUnit(importedUnit || 'cm');
       if (importedMode) els.equipmentMode.value = importedMode;
 
       if (importedStackable !== null) {
@@ -3104,7 +3406,7 @@
 
     function getMaxContainerWeight() {
       const value = parseFloat(els.maxContainerWeight?.value);
-      return Number.isFinite(value) && value > 0 ? value : DEFAULT_MAX_CONTAINER_WEIGHT;
+      return Number.isFinite(value) && value > 0 ? value : defaultMaxContainerWeight;
     }
 
     function itemHasKnownWeight(item) {
@@ -3392,6 +3694,7 @@
         const item = {
           baseId: p.id ? `imp-${p.id}` : `item-${idx + 1}`,
           orderRef: normalizeOrderRef(p.orderRef),
+          orderRefExplicit: Boolean(p.orderRefExplicit),
           cargoClass: normalizeCargoClass(p.cargoClass),
           L: shape === 'cylinder' ? D : p.L,
           W: shape === 'cylinder' ? D : p.W,
@@ -3626,11 +3929,12 @@
       return [...found];
     }
 
-    function invalidateBinGeometryCaches(bin) {
+    function invalidateBinGeometryCaches(bin, appendedPlacement = null) {
       if (!bin) return;
       bin._spatialIndexCache = null;
       bin._candidatePointsCache = null;
       bin._cylinderCandidatePointsCache = null;
+      if (!appendedPlacement) bin._extremePointState = null;
     }
 
     function verticalIntervalsOverlap(a, b) {
@@ -3866,6 +4170,214 @@
       return out;
     }
 
+    // Additional EP / residual-space trials run only after the legacy solution
+    // is complete. Its geometry and search order remain the incumbent.
+    function updateExtremePointResidual(point, obstacle) {
+      const within = (value, start, size) => value >= start - EPS && value < start + size - EPS;
+      if (obstacle.x >= point.x - EPS && within(point.y, obstacle.y, obstacle.W) && within(point.z, obstacle.z, obstacle.H)) {
+        point.rsX = Math.min(point.rsX, Math.max(0, obstacle.x - point.x));
+      }
+      if (obstacle.y >= point.y - EPS && within(point.x, obstacle.x, obstacle.L) && within(point.z, obstacle.z, obstacle.H)) {
+        point.rsY = Math.min(point.rsY, Math.max(0, obstacle.y - point.y));
+      }
+      if (obstacle.z >= point.z - EPS && within(point.x, obstacle.x, obstacle.L) && within(point.y, obstacle.y, obstacle.W)) {
+        point.rsZ = Math.min(point.rsZ, Math.max(0, obstacle.z - point.z));
+      }
+    }
+
+    function createExtremePoint(bin, position, obstacles, calculation = null) {
+      const point = { ...position, rsX:bin.box.L-position.x, rsY:bin.box.W-position.y,
+        rsZ:getContainerHeightLimit(bin.box)-position.z };
+      for (let i=0; i<obstacles.length; i++) {
+        if ((i & 63) === 0) checkCalculation(calculation);
+        updateExtremePointResidual(point, obstacles[i]);
+      }
+      return point;
+    }
+
+    function projectExtremePoint(vertex, axis, obstacles, calculation = null) {
+      const sizes = { x:'L', y:'W', z:'H' };
+      const otherAxes = ['x','y','z'].filter(other => other !== axis);
+      let boundary = 0;
+      for (let i=0; i<obstacles.length; i++) {
+        if ((i & 63) === 0) checkCalculation(calculation);
+        const p = obstacles[i], far = p[axis]+p[sizes[axis]];
+        if (far > vertex[axis]+EPS || far < boundary-EPS) continue;
+        if (otherAxes.every(other => vertex[other] >= p[other]-EPS && vertex[other] < p[other]+p[sizes[other]]-EPS)) {
+          boundary = Math.max(boundary, far);
+        }
+      }
+      return { ...vertex, [axis]:boundary };
+    }
+
+    function generateProjectedCandidatePoints(bin, calculation = null) {
+      let state = bin._extremePointState;
+      if (!state || state.processed > bin.placements.length ||
+          (state.processed && state.last !== bin.placements[state.processed-1])) {
+        state = { processed:0, last:null, points:[], keys:new Set(), sorted:null };
+        const starts = [{ x:0, y:0, z:0 }];
+        if (bin.box.topLoad && bin.box.roofOpenL && bin.box.roofOpenW) {
+          const roof = getRoofOpeningBounds(bin.box);
+          starts.push({x:roof.xMin,y:roof.yMin,z:0});
+        }
+        for (const start of starts) {
+          state.points.push(createExtremePoint(bin,start,[],calculation));
+          state.keys.add(`${start.x}|${start.y}|${start.z}`);
+        }
+        bin._extremePointState = state;
+      }
+      if (state.processed === bin.placements.length && state.sorted) return state.sorted;
+      const heightLimit = getContainerHeightLimit(bin.box);
+      for (let index=state.processed; index<bin.placements.length; index++) {
+        checkCalculation(calculation);
+        const p = bin.placements[index];
+        for (let i=0; i<state.points.length; i++) {
+          if ((i & 63) === 0) checkCalculation(calculation);
+          updateExtremePointResidual(state.points[i],p);
+        }
+        state.points = state.points.filter(point => point.rsX>EPS && point.rsY>EPS && point.rsZ>EPS);
+        state.keys = new Set(state.points.map(point => `${point.x}|${point.y}|${point.z}`));
+        const previous = bin.placements.slice(0,index);
+        const vertices = [
+          [{x:p.x+p.L,y:p.y,z:p.z},['y','z']],
+          [{x:p.x,y:p.y+p.W,z:p.z},['x','z']],
+          [{x:p.x,y:p.y,z:p.z+p.H},['x','y']]
+        ];
+        for (const [vertex,axes] of vertices) for (const axis of axes) {
+          const position = projectExtremePoint(vertex,axis,previous,calculation);
+          if (position.x < -EPS || position.y < -EPS || position.z < -EPS ||
+              position.x >= bin.box.L-EPS || position.y >= bin.box.W-EPS || position.z >= heightLimit-EPS) continue;
+          const key = `${position.x}|${position.y}|${position.z}`;
+          if (state.keys.has(key)) continue;
+          const point = createExtremePoint(bin,position,[...previous,p],calculation);
+          if (point.rsX<=EPS || point.rsY<=EPS || point.rsZ<=EPS) continue;
+          state.keys.add(key); state.points.push(point);
+        }
+        state.processed = index+1;
+        state.last = p;
+      }
+      state.sorted = [...state.points].sort((a,b) => a.z-b.z || a.x-b.x || a.y-b.y);
+      return state.sorted;
+    }
+
+    function buildClusteredExtremePointOrders(items, bins) {
+      const maxArea = Math.max(1,...bins.map(bin => bin.box.L*bin.box.W));
+      // Use the actual item / equipment scale for grouping, including OT / FR;
+      // their permissive calculation ceiling is not a useful sorting scale.
+      const maxHeight = Math.max(1,...bins.map(bin => bin.box.H),...items.map(item => item.H));
+      const orders = [], seen = new Set();
+      const add = order => {
+        const key = order.map(item => item.baseId).join('|');
+        if (!seen.has(key)) { seen.add(key); orders.push(order); }
+      };
+      // The two clustered sorting rules from the paper, at bounded resolutions.
+      for (const percent of [10,25]) {
+        const areaStep = maxArea*percent/100, heightStep = maxHeight*percent/100;
+        add([...items].sort((a,b) => Math.ceil(b.area/areaStep)-Math.ceil(a.area/areaStep) ||
+          b.H-a.H || b.area-a.area || b.volume-a.volume));
+        add([...items].sort((a,b) => Math.ceil(b.H/heightStep)-Math.ceil(a.H/heightStep) ||
+          b.area-a.area || b.H-a.H || b.volume-a.volume));
+      }
+      return orders;
+    }
+
+    async function improveSolutionWithExtremePoints(solution, wantedLayers, calculation = null, options = {}) {
+      if (!solution || solution.manualEdited || solution.quickCalculation || isCylinderMode() ||
+          !solution.bins.length || solution.bins.some(bin => bin.items.some(isCylinder))) return solution;
+      const started = performance.now();
+      const maxMs = options.maxMs ?? 30;
+      if (!(maxMs>0)) return solution;
+      const calc = {
+        jobId:calculation?.jobId ?? updateJobId,
+        get cancelled() { return Boolean(calculation?.cancelled); },
+        deadline:started+maxMs, allowYield:false, interactiveSearch:false,
+        timeChoiceEnabled:false, onFullCandidate:null
+      };
+      const allItems = [...solution.bins.flatMap(bin => bin.items),...(solution.unplaced || [])];
+      const expectedIds = new Set(allItems.map(item => item.baseId));
+      if (expectedIds.size !== allItems.length) return solution;
+      let best = solution, attempts = 0, accepted = 0, timedOut = false, failed = false;
+      const consider = candidate => {
+        checkCalculation(calc);
+        candidate.bins = candidate.bins.filter(bin => bin.items.length);
+        const ids = [...candidate.bins.flatMap(bin => bin.items),...(candidate.unplaced || [])].map(item => item.baseId);
+        if (ids.length !== allItems.length || new Set(ids).size !== ids.length || ids.some(id => !expectedIds.has(id))) return;
+        if (!isSolutionBetter(candidate,best,allItems.length) ||
+            isSolutionBetter(solution,candidate,allItems.length)) return;
+        // Keep the original physical validators, including rotation locks,
+        // weight, doors, support chains, layers and separate-order rules.
+        for (const bin of candidate.bins) {
+          checkCalculation(calc);
+          if (!validateLayoutBin(bin,wantedLayers)) return;
+        }
+        checkCalculation(calc);
+        best = candidate; accepted++;
+      };
+      const trial = async (bins,items,heuristic='RS') => {
+        checkCalculation(calc); attempts++;
+        return packIntoBins(bins,items,heuristic,solution.type,wantedLayers,false,
+          { calculation:calc, pointRule:'projected' });
+      };
+      const checkpoint = () => calculationCheckpoint(calc,null,null,true);
+      try {
+        if (best.unplaced?.length) {
+          const result = await trial(best.bins,best.unplaced);
+          consider({...best,bins:result.bins,unplaced:result.unplaced});
+          await checkpoint();
+        }
+        // First try to empty a small container into the other existing loads.
+        const sources = [...best.bins].sort((a,b) => a.items.length-b.items.length || a.usedVolume-b.usedVolume).slice(0,2);
+        for (const source of sources) {
+          if (best.bins.length<2 || !best.bins.includes(source)) continue;
+          const remaining = best.bins.filter(bin => bin!==source);
+          const order = [...source.items].sort((a,b) => b.volume-a.volume || b.area-a.area);
+          const result = await trial(remaining,order);
+          if (!result.unplaced.length) consider({...best,bins:result.bins});
+          await checkpoint();
+        }
+        // Try smaller equipment using the new rule; the old equipment is kept
+        // unless the complete, validated replacement improves the incumbent.
+        for (const source of [...best.bins]) {
+          const types = getContainerOrder(solution.mode).filter(type => containerRank(type,solution.mode)<containerRank(source.type,solution.mode));
+          if (!types.length) continue;
+          const order = [...source.items].sort((a,b) => b.volume-a.volume || b.area-a.area);
+          for (const type of types) {
+            if (!order.every(item => canItemFitInEmptyContainerBox(CONTAINERS[type],item))) continue;
+            const result = await trial([createEmptyBin(type)],order);
+            if (!result.unplaced.length) {
+              const bins = best.bins.map(bin => bin===source ? result.bins[0] : bin);
+              consider({...best,bins});
+              break;
+            }
+            await checkpoint();
+          }
+        }
+        // All legacy orderings were already completed. These few extra
+        // orderings share a short wall-clock budget rather than extending it.
+        const orders = buildClusteredExtremePointOrders(allItems,best.bins);
+        for (const order of orders) for (const heuristic of ['RS','BLF']) {
+          const result = await trial(best.bins.map(bin => createEmptyBin(bin.type)),order,heuristic);
+          consider({...best,bins:result.bins,unplaced:result.unplaced});
+          await checkpoint();
+        }
+      } catch (error) {
+        if (error instanceof CalculationCancelledError) throw error;
+        if (error instanceof CalculationBudgetExceededError) timedOut = true;
+        else {
+          failed = true;
+          console.warn('Extreme point refinement stopped; keeping the last validated solution.',error);
+        }
+      }
+      // A timeout only discards unfinished trials. The baseline or a completed
+      // improvement survives intact; no partially packed trial can escape.
+      if (best!==solution) {
+        best = {...best,layoutRefined:true};
+        best.weightLimited = Boolean(best.weightLimited || best.bins.some(bin => bin.openedByWeight));
+      }
+      return {...best,extremePointSearch:{attempts,accepted,timedOut,failed,budgetMs:maxMs,elapsedMs:performance.now()-started}};
+    }
+
+
     function circleIntersectionPoints(a, radiusA, b, radiusB) {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
@@ -4083,7 +4595,7 @@
       };
     }
 
-    function placementScore(bin, placement, heuristic) {
+    function placementScore(bin, placement, heuristic, residual = null) {
       const remX = bin.box.L - (placement.x + placement.L);
       const remY = bin.box.W - (placement.y + placement.W);
       const remZ = bin.box.H - (placement.z + placement.H);
@@ -4091,6 +4603,11 @@
       const floorPenalty = placement.z === 0 ? 0 : 1;
       const overWidthPenalty = placementExceedsNominalWidth(placement, bin.box) ? 1 : 0;
       const { edgeDistance, edgeBias } = getPlacementYEdgeMetrics(bin.box, placement);
+
+      if (heuristic === 'RS' && residual) {
+        const space = Math.max(0,residual.rsX-placement.L)+Math.max(0,residual.rsY-placement.W)+Math.max(0,residual.rsZ-placement.H);
+        return [overWidthPenalty,space,placement.z,-contact,placement.x,placement.y];
+      }
 
       if (heuristic === 'ROW') {
         const extent = Math.max(placement.x + placement.L, ...bin.placements.map(p => p.x + p.L));
@@ -4130,7 +4647,9 @@
             calculation,
             maxPoints: maxCylinderCandidatePoints
           })
-        : generateCandidatePoints(bin);
+        : placementOptions.pointRule === 'projected'
+          ? generateProjectedCandidatePoints(bin,calculation)
+          : generateCandidatePoints(bin);
 
       let orientations = getItemOrientations(item);
       if (placementOptions.orientationPolicy && !item.lockRotation && !isCylinder(item)) {
@@ -4173,7 +4692,11 @@
             item
           };
 
-          const score = placementScore(bin, placement, heuristic);
+          const residual = heuristic === 'RS'
+            ? (Number.isFinite(pt.rsX) && candidatePoint.x === pt.x && candidatePoint.y === pt.y
+              ? pt : createExtremePoint(bin,{x:placement.x,y:placement.y,z:placement.z},bin.placements,calculation))
+            : null;
+          const score = placementScore(bin, placement, heuristic, residual);
 
           if (!best || lexicographicallyBetter(score, best.score)) {
             best = { score, placement };
@@ -4199,7 +4722,7 @@
       bin.overHeightWarning = bin.overHeightWarning || (
         placementExceedsNominalHeight(placement, bin.box) && !bin.box?.topLoad
       );
-      invalidateBinGeometryCaches(bin);
+      invalidateBinGeometryCaches(bin, placement);
     }
 
     function betterCandidate(a, b, bins) {
@@ -4235,11 +4758,18 @@
       }
     }
 
+    class QuickCalculationRequestedError extends Error {
+      constructor() { super('Quick calculation requested'); this.name = 'QuickCalculationRequestedError'; }
+    }
+
     function checkCalculation(calculation) {
       if (!calculation) return;
       if (calculation.cancelled || calculation.jobId !== updateJobId) {
         throw new CalculationCancelledError();
       }
+      if (calculation.requestQuickStop) throw new QuickCalculationRequestedError();
+      // Main optimization has no automatic deadline. Only the explicit quick choice interrupts it.
+      if (calculation.interactiveSearch) return;
       if (Number.isFinite(calculation.deadline) && performance.now() > calculation.deadline) {
         calculation.budgetExceeded = true;
         throw new CalculationBudgetExceededError();
@@ -4254,11 +4784,19 @@
 
     async function calculationCheckpoint(calculation, onProgress = null, progress = null, forceYield = false) {
       checkCalculation(calculation);
+      if (calculation?.timeChoiceEnabled && performance.now() >= calculation.promptAt) {
+        askCalculationChoice(calculation);
+        checkCalculation(calculation);
+      }
       if (typeof onProgress === 'function' && progress !== null) onProgress(progress);
 
       if (forceYield || calculation?.allowYield) {
         await new Promise(resolve => window.setTimeout(resolve, 0));
         checkCalculation(calculation);
+        if (calculation?.timeChoiceEnabled && performance.now() >= calculation.promptAt) {
+          askCalculationChoice(calculation);
+          checkCalculation(calculation);
+        }
       }
     }
 
@@ -4281,7 +4819,7 @@
         let best = null;
 
         for (let i = 0; i < bins.length; i++) {
-          const found = findBestPlacementInBin(bins[i], item, wantedLayers, heuristic, { ignoreWeight, calculation, maxCylinderCandidatePoints, orientationPolicy: options.orientationPolicy });
+          const found = findBestPlacementInBin(bins[i], item, wantedLayers, heuristic, { ignoreWeight, calculation, maxCylinderCandidatePoints, orientationPolicy: options.orientationPolicy, pointRule:options.pointRule });
 
           if (found) {
             const cand = {
@@ -4302,7 +4840,7 @@
           if (!ignoreWeight && itemHasKnownWeight(item)) {
             for (const bin of bins) {
               if (canBinAcceptItemWeight(bin, item)) continue;
-              if (findBestPlacementInBin(bin, item, wantedLayers, heuristic, { ignoreWeight: true, calculation, maxCylinderCandidatePoints, orientationPolicy: options.orientationPolicy })) {
+              if (findBestPlacementInBin(bin, item, wantedLayers, heuristic, { ignoreWeight: true, calculation, maxCylinderCandidatePoints, orientationPolicy: options.orientationPolicy, pointRule:options.pointRule })) {
                 blockedByWeight = true;
                 break;
               }
@@ -4313,7 +4851,7 @@
 
           if (allowOpenNewBins) {
             const newBin = createEmptyBin(type);
-            const found = findBestPlacementInBin(newBin, item, wantedLayers, heuristic, { ignoreWeight, calculation, maxCylinderCandidatePoints, orientationPolicy: options.orientationPolicy });
+            const found = findBestPlacementInBin(newBin, item, wantedLayers, heuristic, { ignoreWeight, calculation, maxCylinderCandidatePoints, orientationPolicy: options.orientationPolicy, pointRule:options.pointRule });
 
             if (found) {
               newBin.openedByWeight = blockedByWeight;
@@ -5908,11 +6446,11 @@
         return;
       }
 
-      const heightLabel = createTextLabel(`Door H ${doorH} cm`, '#ffb86b', 190 * labelScale, 28 * labelScale, labelOptions);
+      const heightLabel = createTextLabel(`Door H ${lengthText(doorH)} cm`, '#ffb86b', 190 * labelScale, 28 * labelScale, labelOptions);
       heightLabel.position.set(x - 4, doorH / 2, zDim + (12 * labelScale));
       group.add(heightLabel);
 
-      const widthLabel = createTextLabel(`Door W ${doorW} cm`, '#ffb86b', 190 * labelScale, 28 * labelScale, labelOptions);
+      const widthLabel = createTextLabel(`Door W ${lengthText(doorW)} cm`, '#ffb86b', 190 * labelScale, 28 * labelScale, labelOptions);
       widthLabel.position.set(x - 4, yDim + (12 * labelScale), zLeft + 10);
       group.add(widthLabel);
     }
@@ -5979,15 +6517,15 @@
         return;
       }
 
-      const lengthLabel = createTextLabel(`L ${box.L} cm`, '#ffb86b', 160 * labelScale, 26 * labelScale, labelOptions);
+      const lengthLabel = createTextLabel(`L ${lengthText(box.L)} cm`, '#ffb86b', 160 * labelScale, 26 * labelScale, labelOptions);
       lengthLabel.position.set(xLeft + Math.min(box.L * 0.36, 360), y + (18 * labelScale), zFront + offset + (12 * labelScale));
       group.add(lengthLabel);
 
-      const widthLabel = createTextLabel(`W ${box.W} cm`, '#ffb86b', 150 * labelScale, 26 * labelScale, labelOptions);
+      const widthLabel = createTextLabel(`W ${lengthText(box.W)} cm`, '#ffb86b', 150 * labelScale, 26 * labelScale, labelOptions);
       widthLabel.position.set(xRight + offset + (10 * labelScale), y + (18 * labelScale), zBack + 8);
       group.add(widthLabel);
 
-      const heightLabel = createTextLabel(`H ${box.H} cm`, '#ffb86b', 150 * labelScale, 26 * labelScale, labelOptions);
+      const heightLabel = createTextLabel(`H ${lengthText(box.H)} cm`, '#ffb86b', 150 * labelScale, 26 * labelScale, labelOptions);
       heightLabel.position.set(xLeft - offset - 4, box.H * 0.5, zFront + offset + (12 * labelScale));
       group.add(heightLabel);
     }
@@ -6025,7 +6563,7 @@
         return;
       }
 
-      const label = createTextLabel(`Top ${openL}x${openW} cm`, '#ffb86b', 210 * labelScale, 28 * labelScale, labelOptions);
+      const label = createTextLabel(`Top ${lengthText(openL)}x${lengthText(openW)} cm`, '#ffb86b', 210 * labelScale, 28 * labelScale, labelOptions);
       label.position.set(xLeft, y + (22 * labelScale), zBack);
       group.add(label);
     }
@@ -6436,7 +6974,7 @@
 
       const floor = new THREE.Mesh(
         new THREE.PlaneGeometry(layout.plateL, layout.plateW),
-        new THREE.MeshBasicMaterial({ color: 0x221a20, side: THREE.DoubleSide, transparent: true, opacity: 0.94 })
+        new THREE.MeshBasicMaterial({ color: 0x221a20, side:THREE.DoubleSide, transparent:true, opacity:0.94 })
       );
       floor.rotation.x = -Math.PI / 2;
       group.add(floor);
@@ -6665,6 +7203,7 @@
       window.__interactivePalletMeshes = interactivePalletMeshes;
       window.__interactiveDropBins = interactiveDropBins;
       lastRenderedSolution = solution;
+      updateEquipmentUi(solution);
       hideRotatePalletButton();
 
       let currentZ = 0;
@@ -6684,7 +7223,7 @@
 
         if (showLabels) {
           const labelBase = `${showExportBackPanels ? '' : `${binIndex + 1} · `}${formatContainerType(bin.type)}${bin.visualOnly ? ' - height warning' : ''}`;
-          const labelText = showExportBackPanels ? labelBase : `${labelBase} (${box.L} x ${box.W} x ${box.H} cm)`;
+          const labelText = showExportBackPanels ? labelBase : `${labelBase} (${dimensionsText([box.L,box.W,box.H])} cm)`;
           const labelScaleX = showExportBackPanels ? (Math.min(660, Math.max(500, box.L * 0.44)) * pdfTextScale) : 350;
           const labelScaleY = showExportBackPanels ? (58 * pdfTextScale) : 45;
           const label = createTextLabel(labelText, showExportBackPanels ? '#ffffff' : '#a9b0d6', labelScaleX, labelScaleY, {
@@ -6701,12 +7240,20 @@
           group.add(label);
         }
 
-        const floorGeo = new THREE.PlaneGeometry(box.L, box.W);
-        const floor = new THREE.Mesh(
-          floorGeo,
-          new THREE.MeshBasicMaterial({ color: 0x1a2238, side: THREE.DoubleSide })
-        );
-        floor.rotation.x = -Math.PI / 2;
+        const floorGeo = new THREE.BoxGeometry(box.L, CONTAINER_FLOOR_THICKNESS, box.W);
+        const floorMaterial = new THREE.MeshBasicMaterial({
+          color:0x1a2238, side:THREE.FrontSide, transparent:false, opacity:1, depthTest:true, depthWrite:true
+        });
+        // An opaque underside prevents edge bleed when the deck is viewed from below.
+        // BoxGeometry group 3 faces downward and is culled when viewed from above.
+        const undersideMaterial = floorMaterial.clone();
+        undersideMaterial.depthFunc = THREE.AlwaysDepth;
+        const floor = new THREE.Mesh(floorGeo, [
+          floorMaterial, floorMaterial, floorMaterial, undersideMaterial, floorMaterial, floorMaterial
+        ]);
+        floor.renderOrder = 10000;
+        floor.position.y = -CONTAINER_FLOOR_THICKNESS / 2;
+        floor.userData = {kind:'containerFloor'};
         group.add(floor);
 
         if (showExportBackPanels) {
@@ -6820,9 +7367,20 @@
       camera.updateMatrixWorld(true);
     }
 
-    function setCameraUnlocked(unlocked) {
+    function loadCameraPreference() {
+      let unlocked = false;
+      try { unlocked = localStorage.getItem(CAMERA_SETTINGS_KEY) === 'true'; }
+      catch (_) { /* Keep the default when local storage is unavailable. */ }
+      setCameraUnlocked(unlocked, {persist:false,flash:false});
+    }
+
+    function setCameraUnlocked(unlocked, options = {}) {
       cancelSafeDrag();
       freeCam = Boolean(unlocked);
+      if (options.persist !== false) {
+        try { localStorage.setItem(CAMERA_SETTINGS_KEY,String(freeCam)); }
+        catch (_) { /* The toggle still works without local storage. */ }
+      }
       hideRotatePalletButton();
       resetPalletPointerDownState();
       palletDragState = null;
@@ -6837,7 +7395,7 @@
       }
 
       updateCameraToggleUi();
-      if (!freeCam) flashCameraLockedButton();
+      if (!freeCam && options.flash !== false) flashCameraLockedButton();
     }
 
     function isCameraInteractionMode() {
@@ -7272,7 +7830,8 @@
         maxContainerWeight: els.maxContainerWeight.value ?? '',
         containerDimensions: getContainerDimensionSettingsSnapshot(),
         containerTypes: getContainerTypeSelectionSnapshot(),
-        rows: getActiveCargoRowsInputState()
+        rows: getActiveCargoRowsInputState().map(row => Object.fromEntries(Object.entries(row).map(([key,value]) =>
+          [key, ['L','W','H','D'].includes(key) && value !== '' ? Number(fromCargoInputLength(parseFlexibleNumber(value)).toFixed(9)) : value])))
       });
     }
 
@@ -8069,7 +8628,7 @@
             bin,
             placement,
             { L: nextL, W: nextW, kind: nextKind },
-            `Pallen roterades till ${formatNumberForRowInput(nextL)}x${formatNumberForRowInput(nextW)} cm men fick inte plats i containern, så den flyttades till Ej placerade.`
+            `Pallen roterades till ${lengthText(nextL)}x${lengthText(nextW)} cm men fick inte plats i containern, så den flyttades till Ej placerade.`
           );
           return;
         }
@@ -8096,7 +8655,7 @@
       hideRotatePalletButton();
       updateManualModeUi();
       persistCurrentManualModeState();
-      setRotationFeedback(`Pallen roterades i manuellt läge till ${formatNumberForRowInput(nextL)}x${formatNumberForRowInput(nextW)} cm.`, true);
+      setRotationFeedback(`Pallen roterades i manuellt läge till ${lengthText(nextL)}x${lengthText(nextW)} cm.`, true);
     }
 
     function rotateUnplacedPallet(hit) {
@@ -8134,7 +8693,7 @@
       updateManualModeUi();
       persistCurrentManualModeState();
       autoFitCamera();
-      setRotationFeedback(`Pallen utanför roterades till ${formatNumberForRowInput(nextL)}x${formatNumberForRowInput(nextW)} cm och placerades om på plattan.`, true);
+      setRotationFeedback(`Pallen utanför roterades till ${lengthText(nextL)}x${lengthText(nextW)} cm och placerades om på plattan.`, true);
     }
 
     function candidateManualRotation(bin, placement) {
@@ -8171,8 +8730,8 @@
       const rowData = readPalletRowElement(rowEl);
       if (!rowData.isValid) return null;
 
-      const nextL = formatNumberForRowInput(rotated.L);
-      const nextW = formatNumberForRowInput(rotated.W);
+      const nextL = rotated.L;
+      const nextW = rotated.W;
 
       if (rowData.count > 1) {
         setPalletRowFieldValue(rowEl, 'count', rowData.count - 1);
@@ -8266,6 +8825,7 @@
 
 
     async function updateMixedMode(calculation = null, onProgress = null) {
+      const packingStartedAt = performance.now();
       checkCalculation(calculation);
       updateEquipmentUi();
       if (typeof onProgress === 'function') onProgress(0.01);
@@ -8314,6 +8874,7 @@
 
       setTotalInputStats(items, cargoUnits);
       updateSolutionStats({ algorithm: initialAlgorithm, bins: [], weightLimited: false });
+      try {
       await calculationCheckpoint(calculation, onProgress, 0.03, Boolean(calculation?.allowYield));
 
       if (!useFastPath || needsAdvancedPlanning(packableItems)) {
@@ -8444,10 +9005,44 @@
         }
       }
 
+      checkCalculation(calculation);
+      } catch (error) {
+        if (!(error instanceof QuickCalculationRequestedError)) throw error;
+        calculation.requestQuickStop = false;
+        calculation.timeChoiceEnabled = false;
+        calculation.deadline = null;
+        const quick = await solveOpenBins3D(packableItems, getLargestContainerType(mode), wantedLayers, {
+          calculation, randomOrders:0, maxOrders:1, heuristics:['BLF'],
+          maxCylinderCandidatePoints:BOUNDED_MAX_CYLINDER_CANDIDATE_POINTS,
+          onProgress:mapProgress(onProgress,0.03,0.86)
+        });
+        solution = await shrinkBinsToSmallestPossibleType(quick,wantedLayers,mode,{calculation,quick:true});
+        const incumbent = calculation.bestCompleteCandidate;
+        if (incumbent && isSolutionBetter(incumbent,solution,packableItems.length)) solution = cloneSolution(incumbent);
+        solution.algorithm = 'Snabb · användarval';
+        solution.quickCalculation = true;
+        solution.budgetLimited = false;
+        capacityRows = capacityTypes.map(type => ({type,value:'-'}));
+      }
+      if (calculation) calculation.timeChoiceEnabled = false;
+      if (pendingCalculationChoice?.calculation === calculation) pendingCalculationChoice.finish('complete');
       if (!solution.layoutRefined) {
         solution = await refineSolutionLayout(solution, wantedLayers, calculation, {
           maxMs: Math.min(1500, advancedTimeLimitSeconds * 180)
         });
+      }
+
+      // The full v8.4.3 search and layout refinement have finished unchanged.
+      // Additional trials get at most 4% of that time (12-120 ms), and can only
+      // replace the completed solution after passing the original validators.
+      solution = await improveSolutionWithExtremePoints(solution,wantedLayers,calculation,{
+        maxMs:Math.max(12,Math.min(120,(performance.now()-packingStartedAt)*0.04))
+      });
+      if (solution.extremePointSearch?.accepted) {
+        for (const row of capacityRows) {
+          const observed = Math.max(0,...solution.bins.filter(bin => bin.type===row.type).map(bin => bin.items.length));
+          if (observed>(parseInt(row.value,10)||0)) row.value = `${observed} st`;
+        }
       }
 
       solution.unplaced = uniqueItemsByBaseId([
@@ -8554,9 +9149,11 @@
     // SHARED
     // -------------------------------
 
-    function updateEquipmentUi() {
+    function updateEquipmentUi(solution = lastRenderedSolution) {
       const config = getModeConfig();
-      els.dimensionLegendLabel.innerText = config.legend;
+      const types = [...new Set((solution?.bins || []).map(bin => bin.type).filter(type => CONTAINERS[type]?.family === getEquipmentMode()))];
+      const labels = types.map(type => formatContainerType(type).replace(/\s+/g,''));
+      els.dimensionLegendLabel.textContent = config.legend + (labels.length ? ` (${labels.join(', ')})` : '');
     }
 
     function setCapacityRows(rows) {
@@ -8666,6 +9263,37 @@
       }, 2000);
     }
 
+    function askCalculationChoice(calculation) {
+      checkCalculation(calculation);
+      if (!calculation || calculation.choiceShown || pendingCalculationChoice) return;
+      calculation.choiceShown = true;
+      calculation.timeChoiceEnabled = false;
+      calculation.promptAt = Infinity;
+      const previousFocus = document.activeElement;
+      els.calculationChoiceText.textContent = 'Optimerad beräkning tar längre tid än vanligt. Fortsätt vänta på samma beräkning eller välj en snabbare, mindre noggrann beräkning.';
+      els.calculationChoice.hidden = false;
+      els.continueCalculationBtn.focus({preventScroll:true});
+      const choice = {
+        calculation,
+        finish(action) {
+          if (pendingCalculationChoice !== choice) return;
+          pendingCalculationChoice = null;
+          els.calculationChoice.hidden = true;
+          if (action === 'quick') {
+            calculation.requestQuickStop = true;
+            els.loadingTitle.textContent = 'Kör snabb beräkning';
+          }
+          if (action === 'cancel') calculation.cancelled = true;
+          if (previousFocus?.isConnected && !previousFocus.disabled) previousFocus.focus({preventScroll:true});
+        }
+      };
+      pendingCalculationChoice = choice;
+      // Deliberately no await: optimization and its progress continue while the choice is visible.
+    }
+
+    els.continueCalculationBtn.addEventListener('click', () => pendingCalculationChoice?.finish('continue'));
+    els.quickCalculationBtn.addEventListener('click', () => pendingCalculationChoice?.finish('quick'));
+
     function showLoadingBar(title = 'Beräknar packning') {
       clearTimeout(hideLoadingTimer);
       stopLoadingDrip();
@@ -8674,6 +9302,7 @@
       loadingVisibleSince = performance.now();
       latestRealLoadingProgress = 0;
       lastLoadingProgress = -1;
+      els.calculationChoice.hidden = true;
       els.loadingOverlay.hidden = false;
       els.container.classList.add('is-calculating');
       renderLoadingProgress(0, title);
@@ -8875,12 +9504,13 @@
 
     function getCargoRowsTableForPdf() {
       const rows = readActiveCargoRowDefinitions();
+      const includeOrders = shouldIncludeOrderReferences(rows);
       return {
-        columns: ['Row', 'Count', 'Order ref', 'Cargo class', 'Dimensions (cm)', 'kg / unit'],
-        rows: rows.map((row, i) => [String(i + 1), String(row.count), row.orderRef,
-          cargoClassLabel(row.cargoClass), isCylinder(row) ? `${row.H} x ${row.D}` : `${row.L} x ${row.W} x ${row.H}`,
+        columns:['Row','Count',...(includeOrders ? ['Order ref'] : []),'Cargo class',`Dimensions (cm)`,'kg / unit'],
+        rows:rows.map((row,i) => [String(i+1),String(row.count),...(includeOrders ? [row.orderRef] : []),
+          cargoClassLabel(row.cargoClass), dimensionsText(isCylinder(row) ? [row.H,row.D] : [row.L,row.W,row.H]),
           row.weight === '' ? '-' : String(row.weight)]),
-        widths: [14, 18, 78, 38, 72, 30], title: 'Cargo input rows'
+        widths:includeOrders ? [14,18,78,38,72,30] : [18,22,60,120,30], title:'Cargo input rows'
       };
     }
 
@@ -9644,7 +10274,7 @@
 
       const addLength = () => specs.push({
         role: 'length',
-        text: `L ${box.L} cm`,
+        text: `L ${lengthText(box.L)} cm`,
         point: new THREE.Vector3(0, lineY + labelLift, zFront + offset + 10),
         align: 'center',
         offsetX: 0,
@@ -9653,7 +10283,7 @@
 
       const addWidth = () => specs.push({
         role: 'width',
-        text: `W ${box.W} cm`,
+        text: `W ${lengthText(box.W)} cm`,
         point: new THREE.Vector3(xRight + offset + 10, lineY + labelLift, (zBack + zFront) / 2),
         align: 'left',
         offsetX: 7,
@@ -9662,7 +10292,7 @@
 
       const addHeight = () => specs.push({
         role: 'height',
-        text: `H ${box.H} cm`,
+        text: `H ${lengthText(box.H)} cm`,
         point: new THREE.Vector3(xLeft - offset - 8, box.H / 2, zFront + offset + 10),
         align: 'right',
         offsetX: -7,
@@ -9712,15 +10342,15 @@
       if (!box) return '';
 
       if (view === 'top') {
-        return `L ${box.L} cm | W ${box.W} cm`;
+        return `L ${lengthText(box.L)} cm | W ${lengthText(box.W)} cm`;
       }
 
       if (view === 'sideA' || view === 'sideB') {
-        return `L ${box.L} cm | H ${box.H} cm`;
+        return `L ${lengthText(box.L)} cm | H ${lengthText(box.H)} cm`;
       }
 
       if (view === '3d') {
-        return `L ${box.L} cm | W ${box.W} cm | H ${box.H} cm`;
+        return `L ${lengthText(box.L)} cm | W ${lengthText(box.W)} cm | H ${lengthText(box.H)} cm`;
       }
 
       return '';
@@ -10019,10 +10649,11 @@
         doc.setFillColor(246, 248, 252); doc.rect(0, 0, pageW, pageH, 'F');
         addPdfHeader(doc, 'Loading list', 'One row per cargo unit. Cargo class is a planning label, not a dangerous-goods compatibility check.');
         const manifest = getManifestRows(exportSolution);
-        drawPdfTable(doc, ['Unit', 'Container', 'Equipment', 'Order ref', 'Cargo class', 'L x W x H (cm)', 'kg'],
-          manifest.map(r => [r.unit, r.placed ? r.container : '-', r.equipment || '-', r.orderRef, cargoClassLabel(r.cargoClass),
-            `${r.L} x ${r.W} x ${r.H}`, r.weight === '' ? '-' : String(r.weight)]),
-          10, 28, [17, 24, 29, 77, 35, 48, 20], { title: 'Cargo units' });
+        const includeOrders = shouldIncludeOrderReferences(manifest);
+        drawPdfTable(doc, ['Unit','Container','Equipment',...(includeOrders ? ['Order ref'] : []),'Cargo class',`L x W x H (cm)`,'kg'],
+          manifest.map(r => [r.unit,r.placed ? r.container : '-',r.equipment || '-',...(includeOrders ? [r.orderRef] : []),cargoClassLabel(r.cargoClass),
+            dimensionsText([r.L,r.W,r.H]),r.weight === '' ? '-' : String(r.weight)]),
+          10,28,includeOrders ? [17,24,29,77,35,48,20] : [20,25,35,55,85,30],{title:'Cargo units'});
 
         containerCaptures.forEach((capture, idx) => {
           addContainerViewPage(doc, capture, idx, timestamp);
@@ -10050,6 +10681,7 @@
 
     function cancelActiveCalculation() {
       if (activeCalculation) activeCalculation.cancelled = true;
+      if (pendingCalculationChoice) pendingCalculationChoice.finish('cancel');
       activeCalculation = null;
       calculationRunning = false;
     }
@@ -10080,6 +10712,7 @@
           els.importMsg.innerHTML = `<span class="warning">Beräkningsfel: ${escapeHtml(error?.message || error)}</span>`;
         }
       } finally {
+        if (pendingCalculationChoice?.calculation === calculation) pendingCalculationChoice.finish('complete');
         if (activeCalculation === calculation) activeCalculation = null;
         calculationRunning = false;
         if (showProgress) hideLoadingBar(loadingId, true);
@@ -10120,7 +10753,7 @@
       hideRotatePalletButton();
 
       const totalUnits = getCurrentTotalPalletCount();
-      const showProgress = advancedMode || totalUnits > LONG_CALC_THRESHOLD || hasCargoGrouping(readActiveCargoRowDefinitions());
+      const showProgress = true;
       const calculation = {
         jobId: updateJobId,
         cancelled: false,
@@ -10128,6 +10761,11 @@
         inputSignature,
         deadline: null,
         budgetExceeded: false,
+        interactiveSearch: true,
+        timeChoiceEnabled: true,
+        choiceShown: false,
+        promptAt: performance.now() + advancedTimeLimitSeconds * 1000,
+        requestQuickStop: false,
         maxCylinderCandidatePoints: totalUnits > 80 ? 700 : DEFAULT_MAX_CYLINDER_CANDIDATE_POINTS,
         planCache: new Map()
       };
@@ -10154,7 +10792,7 @@
 
 
     // ------------------------------------------------------------------
-    // v8.3.1 layout polish: optimize appearance only after the load plan.
+    // v8.4.4 layout polish: optimize appearance only after the load plan.
     // Membership, equipment, cargo IDs and physical constraints never change.
     // ------------------------------------------------------------------
     function layoutScoreBetter(a, b) {
@@ -10373,6 +11011,7 @@
     function readRowMetadata(row) {
       return {
         orderRef: normalizeOrderRef(row.querySelector('[data-field="orderRef"]')?.value),
+        orderRefExplicit: Boolean(row.querySelector('[data-field="orderRef"]')?.value.trim()),
         cargoClass: normalizeCargoClass(row.querySelector('[data-field="cargoClass"]')?.value)
       };
     }
@@ -10384,7 +11023,7 @@
       refLabel.textContent = 'Orderref';
       const ref = document.createElement('input');
       ref.type = 'text'; ref.maxLength = 120; ref.dataset.field = 'orderRef';
-      ref.value = normalizeOrderRef(data.orderRef); ref.autocomplete = 'off';
+      ref.value = data.orderRefExplicit === false ? '' : (data.orderRef ?? ''); ref.placeholder = 'Valfri'; ref.autocomplete = 'off';
       ref.addEventListener('input', handler); ref.addEventListener('change', handler);
       refLabel.appendChild(ref);
       const classLabel = document.createElement('label');
@@ -10409,6 +11048,7 @@
       if (!String(text).trim()) return [];
       const result = [];
       let orderRef = 'Order-001';
+      let orderRefExplicit = false;
       let cargoClass = 'general';
       let blockIndex = 0;
       let blockHasHeader = false;
@@ -10428,7 +11068,8 @@
         if (numbers.some(n => !Number.isFinite(n)) || numbers.slice(0, dims).some(n => n <= 0)) throw new Error(`Rad ${lineNo}: ogiltiga m\u00e5tt eller vikt.`);
         if (!Number.isSafeInteger(count) || count < 1 || count > 10000) throw new Error(`Rad ${lineNo}: antal ska vara ett heltal 1\u201310000.`);
         const weight = numbers.length > dims ? numbers[dims] : '';
-        const row = { count, orderRef, cargoClass, weight, lockRotation: cargoType === 'cylinder', cargoType, shape: cargoType === 'cylinder' ? 'cylinder' : 'box' };
+        for (let i = 0; i < dims; i++) numbers[i] = fromCargoInputLength(numbers[i]);
+        const row = { count, orderRef, orderRefExplicit, cargoClass, weight, lockRotation: cargoType === 'cylinder', cargoType, shape: cargoType === 'cylinder' ? 'cylinder' : 'box' };
         if (cargoType === 'cylinder') Object.assign(row, { H: numbers[0], D: numbers[1], L: numbers[1], W: numbers[1] });
         else Object.assign(row, { L: numbers[0], W: numbers[1], H: numbers[2] });
         result.push(row); blockUnits += count;
@@ -10444,6 +11085,7 @@
           let header = line.slice(separator.length).trim().replace(/^order\s*:\s*/i, '');
           if (header.startsWith('[') && header.endsWith(']')) header = header.slice(1, -1).trim();
           const pipe = header.lastIndexOf('|');
+          orderRefExplicit = pipe >= 0 ? Boolean(header.slice(0, pipe).trim()) : Boolean(header && !/^(hazardous|haz|dg|general|general cargo|gc)$/i.test(header));
           if (pipe >= 0) {
             orderRef = normalizeOrderRef(header.slice(0, pipe) || `Order-${String(blockIndex).padStart(3, '0')}`);
             cargoClass = normalizeCargoClass(header.slice(pipe + 1));
@@ -10580,12 +11222,19 @@
         const clean = { ...candidate, mode, bins: candidate.bins.filter(bin => bin.items.length), unplaced: candidate.unplaced || [] };
         candidates++;
         if (isSolutionBetter(clean, best, items.length)) best = cloneSolution(clean);
+        calc.bestCompleteCandidate = cloneSolution(best);
       };
       const layoutReserveMs = Math.min(1500, budgetMs * 0.18);
-      calc.deadline = started + budgetMs - layoutReserveMs;
+      calc.deadline = calc.interactiveSearch ? null : started + budgetMs - layoutReserveMs;
       calc.onFullCandidate = consider;
       calc.maxCylinderCandidatePoints = Math.min(calc.maxCylinderCandidatePoints || 700, items.length > 80 ? 360 : 700);
-      const progress = () => { if (onProgress) onProgress(Math.min(.97, (performance.now() - started) / budgetMs)); };
+      let searchProgress = 0;
+      let phaseStart = 0, phaseEnd = 0.18;
+      const progress = value => {
+        if (Number.isFinite(value)) searchProgress = Math.max(searchProgress, phaseStart + Math.max(0,Math.min(1,value)) * (phaseEnd-phaseStart));
+        if (onProgress) onProgress(Math.min(.97,searchProgress));
+      };
+      const searchPhase = (start,end) => { phaseStart=start; phaseEnd=end; progress(0); };
       const fixedEquipmentSearch = async () => {
         if (!best.bins.length || !groupingRelevant) return;
         const orders = buildGroupedItemOrders(items);
@@ -10609,7 +11258,10 @@
             calculation: calc, randomOrders: 0, maxOrders: 1, heuristics: ['BLF'], onProgress: progress
           });
           consider(seed);
+          searchPhase(.18,.24);
           consider(await shrinkBinsToSmallestPossibleType(seed, wantedLayers, mode, { calculation: calc, quick: true }));
+          progress(1);
+          searchPhase(.24,.40);
           if (itemsAreIdentical(items) || (isCylinderMode() && itemsShareFastCylinderGeometry(items, wantedLayers, mode))) {
             const groups = new Map();
             for (const item of items) {
@@ -10631,18 +11283,27 @@
             consider({ type: getLargestContainerType(mode), mode, bins, unplaced });
             usedFastPath = true;
           }
+          progress(1);
           groupingPreferenceSearch = groupingRelevant;
+          searchPhase(.40,.55);
           await fixedEquipmentSearch();
+          progress(1);
+          searchPhase(.55,.70);
           // One quick per-type capacity estimate, after the actual load plan exists.
-          for (const row of capacityRows) {
-            if (row.value !== '-') continue;
+          for (let capacityIndex=0; capacityIndex<capacityRows.length; capacityIndex++) {
+            const row=capacityRows[capacityIndex];
+            searchPhase(.55+.15*capacityIndex/capacityRows.length, .55+.15*(capacityIndex+1)/capacityRows.length);
+            if (row.value !== '-') { progress(1); continue; }
             const plan = await bestSingleContainerPlan3D(row.type, items, wantedLayers, 0, { calculation: calc, randomOrders: 0, maxOrders: 2, heuristics: ['BLF'] });
             row.value = `${plan.placedUnits || 0} st`;
           }
           // General search may improve the equipment; keep the incumbent on every full run.
           if (!usedFastPath || groupingRelevant) {
+          searchPhase(.70,.90);
           const refined = await buildOptimizedMixedSolution(items, wantedLayers, mode, { calculation: calc, onProgress: progress });
           consider(refined);
+          progress(1);
+          searchPhase(.90,.97);
           await fixedEquipmentSearch();
           }
         }
@@ -10654,7 +11315,7 @@
         calc.onFullCandidate = oldCallback;
         groupingPreferenceSearch = false;
       }
-      best = await refineSolutionLayout(best, wantedLayers, calc, { deadline: started + budgetMs });
+      best = await refineSolutionLayout(best, wantedLayers, calc, { deadline: performance.now() + layoutReserveMs });
       best.algorithm = advancedMode || hasCargoGrouping(items) ? 'Avancerad \u00b7 order/godsklass' : (usedFastPath ? 'Snabb' : 'Optimerad');
       best.budgetLimited = hitDeadline;
       best.boundedSearch = false;
@@ -10680,9 +11341,35 @@
       els.advancedMode.checked = advancedMode;
       els.advancedOptions.hidden = !advancedMode;
       document.body.classList.toggle('is-advanced', advancedMode);
+      queueCargoColumnLayout();
       if (!advancedMode) selectedCargoId = null;
       updateManualModeUi(); updateManualEditor(); updateCalculateButtonState();
       // This is a UI mode switch. Existing rules and valid placements remain intact.
+    }
+
+    function setDefaultMaxContainerWeight(value, markDirty = true) {
+      const weight = parseFlexibleNumber(value);
+      if (!Number.isFinite(weight) || weight <= 0) {
+        els.defaultMaxContainerWeight.value = defaultMaxContainerWeight;
+        els.settingsStatus.textContent = 'Ange en standardmaxvikt större än 0 kg.';
+        return false;
+      }
+      const followsDefault = Number(els.maxContainerWeight.value) === defaultMaxContainerWeight;
+      defaultMaxContainerWeight = weight;
+      els.defaultMaxContainerWeight.value = weight;
+      try { localStorage.setItem(WEIGHT_SETTINGS_KEY, String(weight)); }
+      catch (_) { els.settingsStatus.textContent = 'Kunde inte spara lokalt.'; return false; }
+      if (followsDefault) {
+        els.maxContainerWeight.value = weight;
+        if (markDirty) handlePackingInputsChanged();
+      }
+      els.settingsStatus.textContent = 'Standardmaxvikt sparad lokalt.';
+      return true;
+    }
+
+    function shouldIncludeOrderReferences(rows = readActiveCargoRowDefinitions()) {
+      return new Set(rows.map(row => normalizeOrderRef(row.orderRef))).size > 1 || rows.some(row =>
+        row.orderRefExplicit === true || (row.orderRefExplicit === undefined && normalizeOrderRef(row.orderRef) !== 'Order-001'));
     }
 
     function setAdvancedTimeLimit(value, markDirty = true) {
@@ -10708,12 +11395,24 @@
         if (saved.timeLimitSeconds >= 1 && saved.timeLimitSeconds <= 300) advancedTimeLimitSeconds = Math.round(saved.timeLimitSeconds);
       } catch (_) { /* Safe defaults. */ }
       els.advancedTimeLimit.value = advancedTimeLimitSeconds;
+      try {
+        const savedWeight = Number(localStorage.getItem(WEIGHT_SETTINGS_KEY));
+        if (Number.isFinite(savedWeight) && savedWeight > 0) defaultMaxContainerWeight = savedWeight;
+      } catch (_) { /* Safe default when storage is unavailable. */ }
+      els.defaultMaxContainerWeight.value = defaultMaxContainerWeight;
+      els.maxContainerWeight.value = defaultMaxContainerWeight;
+      els.defaultMaxContainerWeight.addEventListener('change', () => setDefaultMaxContainerWeight(els.defaultMaxContainerWeight.value));
+      els.dimensionUnit.addEventListener('click', () => setDimensionUnit(cargoInputUnit === 'cm' ? 'mm' : 'cm'));
       els.advancedMode.addEventListener('change', () => setAdvancedMode(els.advancedMode.checked));
       els.groupSeparator.addEventListener('change', () => { els.customSeparator.hidden = els.groupSeparator.value !== 'custom'; });
       els.requireSeparateOrders.addEventListener('change', handlePackingInputsChanged);
       els.preferHazardous.addEventListener('change', handlePackingInputsChanged);
       els.advancedTimeLimit.addEventListener('change', () => setAdvancedTimeLimit(els.advancedTimeLimit.value));
-      els.resetContainerSettingsBtn.addEventListener('click', () => setAdvancedTimeLimit(60));
+      els.resetContainerSettingsBtn.addEventListener('click', () => {
+        setAdvancedTimeLimit(60);
+        setDefaultMaxContainerWeight(DEFAULT_MAX_CONTAINER_WEIGHT);
+        els.settingsStatus.textContent = 'Standardinställningar återställda.';
+      });
       els.showManifestBtn.addEventListener('click', openManifest);
       els.manifestCloseBtn.addEventListener('click', closeManifest);
       els.manifestModal.addEventListener('click', event => { if (event.target.matches('[data-manifest-close]')) closeManifest(); });
@@ -10785,9 +11484,9 @@
       lastRenderedSolution.bins.forEach((bin, i) => els.manualTarget.add(new Option(`${i + 1} \u00b7 ${formatContainerType(bin.type)}`, String(i))));
       const idx = lastRenderedSolution.bins.indexOf(hit.bin);
       els.manualTarget.value = String(Math.max(0, idx));
-      els.manualX.value = formatNumberForRowInput(placement.x || 0);
-      els.manualY.value = formatNumberForRowInput(placement.y || 0);
-      els.manualZ.value = formatNumberForRowInput(placement.z || 0);
+      els.manualX.value = formatLengthForInput(placement.x || 0);
+      els.manualY.value = formatLengthForInput(placement.y || 0);
+      els.manualZ.value = formatLengthForInput(placement.z || 0);
       if (!canEdit) manualFeedback('Ber\u00e4kna uppdaterad packning innan du redigerar.');
     }
 
@@ -10883,7 +11582,7 @@
       if (!canEditManually()) return;
       const hit = findSelectedCargoHit();
       const bin = lastRenderedSolution.bins[Number(els.manualTarget.value)];
-      const values = [els.manualX, els.manualY, els.manualZ].map(el => el.value.trim() === '' ? NaN : Number(el.value));
+      const values = [els.manualX, els.manualY, els.manualZ].map(el => el.value.trim() === '' ? NaN : parseFlexibleNumber(el.value));
       if (!hit || !bin || !values.every(Number.isFinite)) { manualFeedback('Ange giltiga X-, Y- och Z-koordinater.'); return; }
       commitSafePlacement(hit, bin, { ...hit.placement, x: values[0], y: values[1], z: values[2] });
     }
@@ -11030,12 +11729,12 @@
       (solution?.bins || []).forEach((bin, index) => {
         [...bin.placements].sort((a,b) => cargoUnitLabel(a.baseId).localeCompare(cargoUnitLabel(b.baseId), 'sv', { numeric:true })).forEach(p => {
           const item = p.item;
-          rows.push({ baseId:p.baseId, unit:cargoUnitLabel(p.baseId), container:index+1, equipment:formatContainerType(bin.type), orderRef:normalizeOrderRef(item.orderRef), cargoClass:normalizeCargoClass(item.cargoClass), L:p.L, W:p.W, H:p.H, D:isCylinder(item) ? item.D : '', weight:itemHasKnownWeight(item) ? getItemWeight(item) : '', x:p.x, y:p.y, z:p.z, placed:true, locked:Boolean(item.lockRotation) });
+          rows.push({ baseId:p.baseId, unit:cargoUnitLabel(p.baseId), container:index+1, equipment:formatContainerType(bin.type), orderRef:normalizeOrderRef(item.orderRef), orderRefExplicit:item.orderRefExplicit, cargoClass:normalizeCargoClass(item.cargoClass), L:p.L, W:p.W, H:p.H, D:isCylinder(item) ? item.D : '', weight:itemHasKnownWeight(item) ? getItemWeight(item) : '', x:p.x, y:p.y, z:p.z, placed:true, locked:Boolean(item.lockRotation) });
         });
       });
       for (const item of solution?.unplaced || []) {
         const orientation = getUnplacedDisplayOrientation(item);
-        rows.push({ baseId:item.baseId, unit:cargoUnitLabel(item.baseId), container:'Ej placerad', equipment:'', orderRef:normalizeOrderRef(item.orderRef), cargoClass:normalizeCargoClass(item.cargoClass), L:orientation.L, W:orientation.W, H:item.H, D:isCylinder(item) ? item.D : '', weight:itemHasKnownWeight(item) ? getItemWeight(item) : '', x:'', y:'', z:'', placed:false, locked:Boolean(item.lockRotation) });
+        rows.push({ baseId:item.baseId, unit:cargoUnitLabel(item.baseId), container:'Ej placerad', equipment:'', orderRef:normalizeOrderRef(item.orderRef), orderRefExplicit:item.orderRefExplicit, cargoClass:normalizeCargoClass(item.cargoClass), L:orientation.L, W:orientation.W, H:item.H, D:isCylinder(item) ? item.D : '', weight:itemHasKnownWeight(item) ? getItemWeight(item) : '', x:'', y:'', z:'', placed:false, locked:Boolean(item.lockRotation) });
       }
       return rows;
     }
@@ -11048,7 +11747,7 @@
       els.manifestFilter.add(new Option('Endast hazardous', 'hazardous'));
       els.manifestFilter.add(new Option('Endast general cargo', 'general'));
       if (rows.some(row => !row.placed)) els.manifestFilter.add(new Option('Ej placerade', 'unplaced'));
-      for (const ref of new Set(rows.map(row => row.orderRef))) els.manifestFilter.add(new Option(`Order: ${ref}`, `order:${ref}`));
+      if (shouldIncludeOrderReferences(rows)) for (const ref of new Set(rows.map(row => row.orderRef))) els.manifestFilter.add(new Option(`Order: ${ref}`, `order:${ref}`));
       renderManifest(); els.manifestModal.hidden = false; els.manifestCloseBtn.focus();
     }
 
@@ -11059,14 +11758,16 @@
       const rows = getManifestRows().filter(row => filter === 'all' ||
         filter === `bin:${row.container}` || filter === `order:${row.orderRef}` ||
         filter === row.cargoClass || (filter === 'unplaced' && !row.placed));
+      const includeOrders = shouldIncludeOrderReferences(getManifestRows());
+      document.getElementById('manifestOrderHeader').hidden = !includeOrders;
       els.manifestBody.replaceChildren();
       const fragment = document.createDocumentFragment();
       for (const row of rows) {
         const tr = document.createElement('tr');
-        const values = [row.unit, row.container, row.equipment || '-', row.orderRef, cargoClassLabel(row.cargoClass), `${formatNumberForRowInput(row.L)} \u00d7 ${formatNumberForRowInput(row.W)} \u00d7 ${formatNumberForRowInput(row.H)}`, row.weight === '' ? 'Ok\u00e4nd' : formatNumberForRowInput(row.weight), row.placed ? [row.x,row.y,row.z].map(formatNumberForRowInput).join(' / ') : '-'];
+        const values = [row.unit,row.container,row.equipment || '-',...(includeOrders ? [row.orderRef] : []),cargoClassLabel(row.cargoClass),dimensionsText([row.L,row.W,row.H]),row.weight === '' ? 'Okänd' : formatNumberForRowInput(row.weight),row.placed ? [row.x,row.y,row.z].map(lengthText).join(' / ') : '-'];
         values.forEach((value, i) => {
           const td = document.createElement('td'); td.textContent = String(value);
-          if (i === 4) td.className = row.cargoClass === 'hazardous' ? 'cargo-haz' : 'cargo-general';
+          if (i === (includeOrders ? 4 : 3)) td.className = row.cargoClass === 'hazardous' ? 'cargo-haz' : 'cargo-general';
           tr.appendChild(td);
         });
         const action = document.createElement('td');
@@ -11137,43 +11838,45 @@
 
     function buildManifestWorkbook(solution = lastRenderedSolution) {
       const manifest = getManifestRows(solution);
-      const header = ['Unit','Container','Equipment','Order ref','Cargo class','L (cm)','W (cm)','H (cm)','Diameter (cm)','Weight (kg)'];
-      // Keep every unit. Unassigned units have a blank Container, not a hidden status column.
-      const data = [header, ...manifest.map(r => [r.unit, r.placed ? r.container : '', r.equipment, r.orderRef,
-        cargoClassLabel(r.cargoClass), r.L, r.W, r.H, r.D, r.weight])];
-      const last = Math.max(2, data.length);
-      const range = col => `'Loading list'!$${col}$2:$${col}$${last}`;
-      const formula = (formula, value) => ({ formula, value });
-      const containers = [['Container','Equipment','Units','Hazardous','General cargo','Order refs','Known weight (kg)','Unknown weight (units)']];
-      (solution?.bins || []).forEach((bin, i) => {
-        const n = i + 2, subset = manifest.filter(r => r.placed && r.container === i + 1);
+      const includeOrders = shouldIncludeOrderReferences(manifest);
+      const header = ['Unit','Container','Equipment',...(includeOrders ? ['Order ref'] : []),'Cargo class',
+        `L (cm)`,`W (cm)`,`H (cm)`,`Diameter (cm)`,'Weight (kg)'];
+      const data = [header,...manifest.map(r => [r.unit,r.placed ? r.container : '',r.equipment,...(includeOrders ? [r.orderRef] : []),
+        cargoClassLabel(r.cargoClass),r.L,r.W,r.H,r.D === '' ? '' : r.D,r.weight])];
+      const last = Math.max(2,data.length);
+      const range = name => `'Loading list'!$${excelColumn(header.indexOf(name))}$2:$${excelColumn(header.indexOf(name))}$${last}`;
+      const formula = (formula,value) => ({formula,value});
+      const containers = [['Container','Equipment','Units','Hazardous','General cargo',...(includeOrders ? ['Order refs'] : []),'Known weight (kg)','Unknown weight (units)']];
+      (solution?.bins || []).forEach((bin,i) => {
+        const n = i+2, subset = manifest.filter(r => r.placed && r.container === i+1);
         const hazardous = subset.filter(r => r.cargoClass === 'hazardous').length;
-        containers.push([i+1, formatContainerType(bin.type),
-          formula(`COUNTIF(${range('B')},A${n})`, subset.length),
-          formula(`COUNTIFS(${range('B')},A${n},${range('E')},"Hazardous")`, hazardous),
-          formula(`C${n}-D${n}`, subset.length-hazardous),
-          [...new Set(subset.map(r => r.orderRef))].join(', '),
-          formula(`SUMIF(${range('B')},A${n},${range('J')})`, subset.reduce((sum,r) => sum+(Number(r.weight)||0),0)),
-          formula(`COUNTIFS(${range('B')},A${n},${range('J')},"")`, subset.filter(r => r.weight === '').length)]);
-      });
-      const orders = [['Order ref','Units','Containers','Hazardous','General cargo','Known weight (kg)','Unknown weight (units)']];
-      [...new Set(manifest.map(r => r.orderRef))].forEach((ref, i) => {
-        const n = i + 2, subset = manifest.filter(r => r.orderRef === ref);
-        const hazardous = subset.filter(r => r.cargoClass === 'hazardous').length;
-        // Exact comparisons preserve order refs containing Excel wildcard characters.
-        orders.push([ref,
-          formula(`SUMPRODUCT(EXACT(${range('D')},A${n})*1)`, subset.length),
-          [...new Set(subset.filter(r => r.placed).map(r => r.container))].join(', '),
-          formula(`SUMPRODUCT(EXACT(${range('D')},A${n})*(${range('E')}="Hazardous"))`, hazardous),
-          formula(`B${n}-D${n}`, subset.length-hazardous),
-          formula(`SUMPRODUCT(EXACT(${range('D')},A${n})*${range('J')})`, subset.reduce((sum,r) => sum+(Number(r.weight)||0),0)),
-          formula(`SUMPRODUCT(EXACT(${range('D')},A${n})*(${range('J')}=""))`, subset.filter(r => r.weight === '').length)]);
+        containers.push([i+1,formatContainerType(bin.type),
+          formula(`COUNTIF(${range('Container')},A${n})`,subset.length),
+          formula(`COUNTIFS(${range('Container')},A${n},${range('Cargo class')},"Hazardous")`,hazardous),
+          formula(`C${n}-D${n}`,subset.length-hazardous),
+          ...(includeOrders ? [[...new Set(subset.map(r => r.orderRef))].join(', ')] : []),
+          formula(`SUMIF(${range('Container')},A${n},${range('Weight (kg)')})`,subset.reduce((sum,r) => sum+(Number(r.weight)||0),0)),
+          formula(`COUNTIFS(${range('Container')},A${n},${range('Weight (kg)')},"")`,subset.filter(r => r.weight === '').length)]);
       });
       const sheets = [
-        {name:'Loading list', rows:data, widths:[10,14,16,36,19,13,13,13,16,16]},
-        {name:'Containers', rows:containers, widths:[14,17,12,15,18,48,21,24]},
-        {name:'Orders', rows:orders, widths:[36,12,23,15,18,21,24]}
+        {name:'Loading list',rows:data,widths:includeOrders ? [10,14,16,36,19,13,13,13,16,16] : [10,14,16,19,13,13,13,16,16]},
+        {name:'Containers',rows:containers,widths:includeOrders ? [14,17,12,15,18,48,21,24] : [14,17,12,15,18,21,24]}
       ];
+      if (includeOrders) {
+        const orders = [['Order ref','Units','Containers','Hazardous','General cargo','Known weight (kg)','Unknown weight (units)']];
+        [...new Set(manifest.map(r => r.orderRef))].forEach((ref,i) => {
+          const n = i+2, subset = manifest.filter(r => r.orderRef === ref);
+          const hazardous = subset.filter(r => r.cargoClass === 'hazardous').length;
+          orders.push([ref,
+            formula(`SUMPRODUCT(EXACT(${range('Order ref')},A${n})*1)`,subset.length),
+            [...new Set(subset.filter(r => r.placed).map(r => r.container))].join(', '),
+            formula(`SUMPRODUCT(EXACT(${range('Order ref')},A${n})*(${range('Cargo class')}="Hazardous"))`,hazardous),
+            formula(`B${n}-D${n}`,subset.length-hazardous),
+            formula(`SUMPRODUCT(EXACT(${range('Order ref')},A${n})*${range('Weight (kg)')})`,subset.reduce((sum,r) => sum+(Number(r.weight)||0),0)),
+            formula(`SUMPRODUCT(EXACT(${range('Order ref')},A${n})*(${range('Weight (kg)')}=""))`,subset.filter(r => r.weight === '').length)]);
+        });
+        sheets.push({name:'Orders',rows:orders,widths:[36,12,23,15,18,21,24]});
+      }
       const base='http://schemas.openxmlformats.org';
       const files=[];
       const add=(name,content)=>files.push([name,content]);
@@ -11192,13 +11895,13 @@
         const blob = buildManifestWorkbook();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href=url;
-        a.download=`Loading-List_v8.3.1_${formatPdfFileTimestamp(new Date())}.xlsx`;
+        a.download=`Loading-List_v8.4.4_${formatPdfFileTimestamp(new Date())}.xlsx`;
         document.body.appendChild(a); a.click(); a.remove();
         window.setTimeout(()=>URL.revokeObjectURL(url), 1000);
         const unassigned = lastRenderedSolution.unplaced?.length || 0;
         els.importMsg.innerHTML = unassigned
           ? `<span class="warning">Excel exporterad. ${unassigned} kollin saknar container och har tom containercell i Loading list.</span>`
-          : '<span class="success">Excel exporterad: Loading list, Containers och Orders.</span>';
+          : `<span class="success">Excel exporterad: Loading list, Containers${shouldIncludeOrderReferences(getManifestRows()) ? ' och Orders' : ''}.</span>`;
       } catch(error) { els.importMsg.innerHTML=`<span class="warning">Kunde inte exportera Excel: ${escapeHtml(error.message)}</span>`; }
     }
 
@@ -11223,6 +11926,7 @@
       return encoding === 'apostrophe-v1' && text.startsWith("'") ? text.slice(1) : text;
     }
 
+    initializeCylinderDimensionHelp();
     initializeAdvancedFeatures();
     loadContainerDimensionSettings();
     loadContainerTypeSelections();
@@ -11231,10 +11935,13 @@
     addCylinderRow({ count: 1 }, false);
     lastHandledPalletRowsSignature = getPalletRowsInputSignature();
     lastHandledCylinderRowsSignature = getCylinderRowsInputSignature();
+    updateDimensionLabels();
     setCargoType('pallet', { markDirty: false });
     showEmpty20Container('Ingen packning beräknad.');
     lastRenderedSolution = null;
     updateCalculateButtonState();
+    loadCameraPreference();
+    queueCargoColumnLayout();
     animate();
   </script>
 </body>
